@@ -95,6 +95,38 @@ export default function AdminEscalationsPage() {
         </p>
       </div>
 
+      {/* Telegram Dual Bot Real-time Integration Card */}
+      <div className="bg-slate-900/90 border border-purple-500/30 rounded-xl p-4 flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-xs font-bold text-purple-300">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <span>Dual Telegram Real-Time Automation Active</span>
+          </div>
+          <p className="text-xs text-slate-300">
+            <strong>User Emergency Bot:</strong> <a href="https://t.me/backuvro_bot" target="_blank" rel="noopener noreferrer" className="text-cyan-400 underline font-mono">@backuvro_bot</a> — User inputs & offline triage execute directly here if PC is off or showing drive errors.<br />
+            <strong>Admin Self-Improving Bot:</strong> <a href="https://t.me/AHackBattle013bot" target="_blank" rel="noopener noreferrer" className="text-purple-400 underline font-mono">@AHackBattle013bot</a> — Reply via <code className="bg-slate-800 px-1 rounded text-purple-200">/reply &lt;ticketId&gt; &lt;resolution&gt;</code> to indirectly support the chat and train the AI.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <a
+            href="https://t.me/AHackBattle013bot"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs bg-purple-600 hover:bg-purple-500 text-white font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors"
+          >
+            Open Admin Bot @AHackBattle013bot
+          </a>
+          <a
+            href="https://t.me/backuvro_bot"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 transition-colors border border-slate-700"
+          >
+            User Bot @backuvro_bot
+          </a>
+        </div>
+      </div>
+
       {successToast && (
         <div className="p-3.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-sm flex items-center justify-between">
           <div className="flex items-center gap-2">
