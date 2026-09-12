@@ -20,6 +20,26 @@ interface ScreenPhotoAnalysis {
 function analyzeScreenPhotoOrQuery(text: string, photoType?: string): ScreenPhotoAnalysis {
   const normalized = (text + " " + (photoType || "")).toLowerCase();
 
+  // 0. Task Manager Runaway Process or Memory Leak
+  if (normalized.includes("task manager") || normalized.includes("cpu") || normalized.includes("crypto") || normalized.includes("memory leak") || normalized.includes("99%")) {
+    return {
+      detectedErrorCode: "TASK_MANAGER_ABNORMAL_LOAD (0x00000000)",
+      faultyModule: normalized.includes("memory") ? "Non-Paged Kernel Pool / Leaking Worker" : "svchost_crypto.exe (PID 4920)",
+      crashCategory: normalized.includes("memory") ? "hardware_memory" : "driver_software",
+      suggestedSolution: [
+        "Visual Task Manager telemetry confirms 98%+ resource exhaustion.",
+        "Thermal throttling active; host clocks down to prevent hardware damage.",
+        "Kill rogue process and purge bloated standby memory cache.",
+      ],
+      remediationCommands: [
+        "Stop-Process -Name svchost_crypto -Force -ErrorAction SilentlyContinue",
+        "powercfg /setactive 381b4222-f694-41f0-9685-ff5bb260df2e",
+      ],
+      recommendedAgent: "software_recovery_agent",
+      agentHandoffReason: "Operating system task manager process runaway detected. Handing off to Software Recovery Agent for automated process kill and power plan calibration.",
+    };
+  }
+
   // 1. Storage Hardware Failure (Unmountable Boot Volume / I/O Error)
   if (normalized.includes("unmountable_boot_volume") || normalized.includes("boot") || normalized.includes("no bootable device") || normalized.includes("inaccessible_boot_device")) {
     return {

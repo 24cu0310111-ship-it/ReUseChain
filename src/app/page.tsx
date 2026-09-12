@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { 
   Laptop, 
@@ -35,7 +35,9 @@ import {
   Navigation,
   Leaf,
   Check,
-  Copy
+  Copy,
+  Image as ImageIcon,
+  X
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -206,56 +208,118 @@ export default function HomePage() {
   ]);
   const [chatInput, setChatInput] = useState("");
   const [chatExecuting, setChatExecuting] = useState(false);
+  const [chatAttachedPhoto, setChatAttachedPhoto] = useState<string | null>(null);
+  const [chatAttachedPhotoName, setChatAttachedPhotoName] = useState<string | null>(null);
+  const [chatPendingTicketId, setChatPendingTicketId] = useState<string | null>(null);
+  const [chatSimulatingAdminReply, setChatSimulatingAdminReply] = useState(false);
+  const chatFileInputRef = useRef<HTMLInputElement>(null);
 
-  const sendChatMessage = async (query: string) => {
-    if (!query.trim() || chatExecuting) return;
+  // Polling for live Admin Telegram Reply in dashboard chat
+  useEffect(() => {
+    if (!chatPendingTicketId) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/escalations/status?ticketId=${chatPendingTicketId}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data?.status === "resolved" && json.data?.adminResponse) {
+            const adminLiveMsg = {
+              id: `admin-${Date.now()}`,
+              sender: "admin",
+              text: `👤 Live Reply from ${json.data.resolvedBy || "Lead Systems Admin"} (via Telegram Bot):\n"${json.data.adminResponse}"`,
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            };
+
+            const agentLearnedMsg = {
+              id: `agent-learned-${Date.now()}`,
+              sender: "agent",
+              text: `🧠 Learned & Self-Improved from Admin Response:\n"${json.data.learnedRule || json.data.adminResponse}"\n\nI have committed this rule to my permanent decision model. Future queries with this symptom will now be resolved automatically!`,
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            };
+
+            setChatMessages((prev) => [...prev, adminLiveMsg, agentLearnedMsg]);
+            setChatPendingTicketId(null);
+          }
+        }
+      } catch (err) {
+        console.warn("Polling escalation status failed:", err);
+      }
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [chatPendingTicketId]);
+
+  const handleSimulateDashboardAdminReply = async (ticketId: string) => {
+    try {
+      setChatSimulatingAdminReply(true);
+      await fetch("/api/escalations/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ticketId,
+          adminResponse: "I've reviewed your kernel telemetry and Task Manager process capture. The issue is caused by background thread contention. Disabling ASPM L1.2 and setting High Performance power profile resolves this completely.",
+          learnedRule: "For PCIe and background thread latency collisions, enforce High Performance power plan.",
+          resolvedBy: "Lead Systems Administrator (via Telegram Bot)",
+        }),
+      });
+    } catch (e) {
+      console.error("Failed to simulate admin reply:", e);
+    } finally {
+      setChatSimulatingAdminReply(false);
+    }
+  };
+
+  const handleDashboardFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setChatAttachedPhotoName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setChatAttachedPhoto(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const sendChatMessage = async (query: string, photoOverride?: string) => {
+    const photoToSend = photoOverride || chatAttachedPhoto;
+    if ((!query.trim() && !photoToSend) || chatExecuting) return;
 
     const userMsg = {
       id: `user-${Date.now()}`,
       sender: "user",
       text: query,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      photoUrl: photoToSend || undefined,
     };
     setChatMessages((prev) => [...prev, userMsg]);
     setChatInput("");
+    setChatAttachedPhoto(null);
+    setChatAttachedPhotoName(null);
     setChatExecuting(true);
 
     try {
       const res = await fetch("/api/assistant", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ queryText: query, assetTag }),
+        body: JSON.stringify({ queryText: query, assetTag, photoData: photoToSend }),
       });
       const data = await res.json();
 
       if (data.actionType === "ADMIN_ESCALATION") {
-        // Agent explains escalation
         const agentEscalateMsg = {
           id: `agent-esc-${Date.now()}`,
           sender: "agent",
           text: `⚠️ ${data.completionMessage}`,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           escalationData: data.actionDetails,
+          actionType: "ADMIN_ESCALATION",
+          actionDetails: data.actionDetails,
         };
-
-        // Admin live reply simulated
-        const adminLiveMsg = {
-          id: `admin-${Date.now()}`,
-          sender: "admin",
-          text: `👤 Live Reply from Lead Systems Admin:\n"${data.actionDetails.adminLiveReply}"`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-        };
-
-        // Agent learns from admin reply
-        const agentLearnedMsg = {
-          id: `agent-learned-${Date.now()}`,
-          sender: "agent",
-          text: `🧠 Learned from Admin Response:\n"${data.actionDetails.learnedRule}"\n\nI have committed this rule to my decision matrix for future automated resolution!`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          finalActions: data.actionDetails.finalActions,
-        };
-
-        setChatMessages((prev) => [...prev, agentEscalateMsg, adminLiveMsg, agentLearnedMsg]);
+        setChatMessages((prev) => [...prev, agentEscalateMsg]);
+        if (data.actionDetails?.escalationId) {
+          setChatPendingTicketId(data.actionDetails.escalationId);
+        }
       } else {
         const agentMsg = {
           id: `agent-${Date.now()}`,
@@ -1256,6 +1320,14 @@ export default function HomePage() {
                     ? "bg-purple-950/70 border border-purple-500/40 text-purple-200 rounded-tl-none font-medium"
                     : "bg-slate-900 border border-slate-800 text-slate-200 rounded-tl-none"
                 }`}>
+                  {m.photoUrl && (
+                    <div className="mb-2.5 rounded-lg overflow-hidden border border-white/20 max-w-xs">
+                      <div className="bg-black/70 px-2 py-0.5 text-[9px] text-cyan-300 flex items-center gap-1">
+                        <ImageIcon className="w-3 h-3" /> Attached Screen Screenshot
+                      </div>
+                      <img src={m.photoUrl} alt="Attached screenshot" className="w-full object-cover max-h-36" />
+                    </div>
+                  )}
                   <div className="whitespace-pre-line">{m.text}</div>
 
                   {/* Chips if any */}
@@ -1471,6 +1543,62 @@ export default function HomePage() {
                     </div>
                   )}
 
+                  {/* Proof Card 5: Admin Escalation & Telegram Sync */}
+                  {m.actionType === "ADMIN_ESCALATION" && m.actionDetails && (
+                    <div className="mt-3 pt-2.5 border-t border-slate-800 space-y-2.5 bg-slate-950/90 p-3.5 rounded-xl border border-purple-500/40 animate-in fade-in">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-purple-400 font-bold flex items-center gap-1.5">
+                          <UserCheck className="w-4 h-4 text-purple-400" /> Admin Escalation (Human-in-the-Loop)
+                        </span>
+                        <Badge variant="purple" className="text-[9px]">
+                          Ticket #{m.actionDetails.escalationId?.slice(0, 8) || "L3-ESC"}
+                        </Badge>
+                      </div>
+
+                      <div className="bg-blue-950/40 border border-blue-500/30 rounded-lg p-2 text-xs text-blue-200 flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-[11px]">
+                          <Send className="w-3 h-3 text-blue-400" />
+                          <span>Notified Lead Admin via <a href="https://t.me/AHackBattle013bot" target="_blank" rel="noopener noreferrer" className="font-bold underline decoration-blue-400">@AHackBattle013bot</a></span>
+                        </div>
+                        <a href="https://t.me/backuvro_bot" target="_blank" rel="noopener noreferrer" className="text-[10px] text-purple-300 font-mono bg-purple-950/60 px-2 py-0.5 rounded border border-purple-500/30 hover:bg-purple-900/60">
+                          📱 Backup Bot: @backuvro_bot
+                        </a>
+                      </div>
+
+                      {chatPendingTicketId === m.actionDetails.escalationId ? (
+                        <div className="bg-amber-950/30 border border-amber-500/40 rounded-lg p-2.5 text-xs space-y-2 text-amber-200">
+                          <div className="flex items-center gap-2 font-semibold">
+                            <Clock className="w-3.5 h-3.5 text-amber-400 animate-spin" />
+                            <span>Awaiting Live Response from Lead Admin on Telegram...</span>
+                          </div>
+                          <div className="flex items-center justify-between gap-2 border-t border-amber-500/20 pt-1.5">
+                            <span className="text-[10px] text-slate-400">Testing?</span>
+                            <Button
+                              size="sm"
+                              disabled={chatSimulatingAdminReply}
+                              onClick={() => handleSimulateDashboardAdminReply(m.actionDetails!.escalationId!)}
+                              className="bg-purple-600 hover:bg-purple-500 text-white text-[10px] h-6 px-2"
+                            >
+                              {chatSimulatingAdminReply ? "Simulating..." : "⚡ Simulate Telegram Reply"}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        m.actionDetails.adminLiveReply && (
+                          <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-2.5 text-xs text-purple-200">
+                            <div className="font-bold flex items-center gap-1 text-purple-300 text-[11px]">
+                              <UserCheck className="w-3 h-3 text-purple-400" />
+                              Reply from {m.actionDetails.assignedTo || "Lead Admin (via Telegram)"}:
+                            </div>
+                            <p className="italic text-slate-200 mt-1 pl-1 border-l border-purple-400">
+                              "{m.actionDetails.adminLiveReply}"
+                            </p>
+                          </div>
+                        )
+                      )}
+                    </div>
+                  )}
+
                   {/* Recommended Action rendered inside chat based on device condition */}
                   {m.finalActions && (
                     <div className="mt-3 pt-2.5 border-t border-slate-800 space-y-2">
@@ -1540,48 +1668,79 @@ export default function HomePage() {
             <div className="flex items-center gap-1.5 overflow-x-auto text-[11px] text-slate-400 pb-1 scrollbar-none">
               <span className="shrink-0 font-medium">Quick:</span>
               <button
+                type="button"
+                onClick={() => sendChatMessage("Task Manager shows 98.4% CPU runaway process svchost_crypto.exe and thermal throttling", "cpu_runaway")}
+                className="shrink-0 px-2.5 py-1 rounded-full bg-rose-950/50 border border-rose-500/40 text-rose-300 hover:text-white"
+              >
+                📸 Task Manager 99% CPU
+              </button>
+              <button
+                type="button"
+                onClick={() => sendChatMessage("Task Manager shows 95% RAM memory leak in non-paged kernel pool", "memory_leak")}
+                className="shrink-0 px-2.5 py-1 rounded-full bg-amber-950/50 border border-amber-500/40 text-amber-300 hover:text-white"
+              >
+                📸 Task Manager 95% RAM
+              </button>
+              <button
+                type="button"
                 onClick={() => sendChatMessage("Can you scan my PC hardware?")}
                 className="shrink-0 px-2.5 py-1 rounded-full bg-slate-950 border border-slate-800 hover:text-white"
               >
                 ⚡ Scan PC
               </button>
               <button
+                type="button"
                 onClick={() => sendChatMessage("Keyboard semi colon symbol is that working")}
                 className="shrink-0 px-2.5 py-1 rounded-full bg-purple-950/60 border border-purple-500/30 text-purple-300 hover:text-white"
               >
-                ⌨️ Semi-colon (;) Key Test
+                ⌨️ Semi-colon (;) Test
               </button>
               <button
+                type="button"
                 onClick={() => sendChatMessage("Book a doorstep technician for tomorrow 10am")}
                 className="shrink-0 px-2.5 py-1 rounded-full bg-amber-950/60 border border-amber-500/30 text-amber-300 hover:text-white"
               >
-                ⚡ Book Doorstep Tech
+                ⚡ Book Tech
               </button>
               <button
+                type="button"
                 onClick={() => sendChatMessage("Track my technician live on ONDC")}
                 className="shrink-0 px-2.5 py-1 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 hover:text-white"
               >
-                📡 Live GPS Radar
+                📡 GPS Radar
               </button>
               <button
-                onClick={() => sendChatMessage("Repurpose working components for home server or NAS node")}
-                className="shrink-0 px-2.5 py-1 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 hover:text-white"
-              >
-                🔁 Reuse Blueprints
-              </button>
-              <button
-                onClick={() => sendChatMessage("Schedule certified zero-landfill e-waste pickup with scrap credit")}
-                className="shrink-0 px-2.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 hover:text-white"
-              >
-                ♻️ E-Waste Recycle (+$18.50)
-              </button>
-              <button
+                type="button"
                 onClick={() => sendChatMessage("I have an unfamiliar kernel error 0x800F0922, please escalate to admin")}
                 className="shrink-0 px-2.5 py-1 rounded-full bg-slate-950 border border-slate-800 hover:text-white"
               >
                 👤 Escalate to Admin
               </button>
             </div>
+
+            {/* Attached Photo Pill */}
+            {chatAttachedPhoto && (
+              <div className="flex items-center gap-2 p-1 px-2.5 bg-cyan-950/60 border border-cyan-500/40 rounded-lg text-xs text-cyan-300 w-fit">
+                <ImageIcon className="w-3.5 h-3.5" />
+                <span className="font-medium truncate max-w-[200px]">{chatAttachedPhotoName || "Attached Screenshot"}</span>
+                <button
+                  type="button"
+                  onClick={() => { setChatAttachedPhoto(null); setChatAttachedPhotoName(null); }}
+                  className="text-cyan-400 hover:text-white ml-1"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
+            {/* Hidden File Input */}
+            <input
+              type="file"
+              ref={chatFileInputRef}
+              accept="image/*"
+              onChange={handleDashboardFileUpload}
+              className="hidden"
+            />
 
             <form
               onSubmit={(e) => {
@@ -1590,17 +1749,30 @@ export default function HomePage() {
               }}
               className="flex items-center gap-2"
             >
+              <button
+                type="button"
+                onClick={() => chatFileInputRef.current?.click()}
+                title="Attach Task Manager or OS screen photo"
+                className={`h-10 w-10 shrink-0 rounded-xl border flex items-center justify-center transition-colors ${
+                  chatAttachedPhoto
+                    ? "bg-cyan-950 border-cyan-500 text-cyan-300"
+                    : "bg-slate-950 border-slate-800 text-slate-400 hover:text-cyan-400"
+                }`}
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+
               <input
                 type="text"
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
-                placeholder="Ask about your PC issue or request admin escalation..."
+                placeholder={chatAttachedPhoto ? "Describe attached screenshot or click Send..." : "Ask about your PC issue, attach Task Manager photo, or request admin escalation..."}
                 disabled={chatExecuting}
                 className="flex-1 h-10 bg-slate-950 border border-slate-800 rounded-xl px-3 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-emerald-500"
               />
               <Button
                 type="submit"
-                disabled={!chatInput.trim() || chatExecuting}
+                disabled={(!chatInput.trim() && !chatAttachedPhoto) || chatExecuting}
                 className="h-10 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs gap-1.5"
               >
                 <Send className="w-3.5 h-3.5" /> Send

@@ -184,6 +184,9 @@ model AdminEscalation {
   adminResponse    String?
   learnedRule      String?
   resolvedBy       String?
+  mediaUrl         String?
+  sourceChannel    String?  @default("web_chat") // web_chat, telegram_backup_bot, telegram_bot
+  telegramChatId   String?  // If escalated from Telegram Backup Bot, store user's chatId to route reply back
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 }

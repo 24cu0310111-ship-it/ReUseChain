@@ -1,3 +1,5 @@
+export {};
+
 async function main() {
   console.log("=== Testing Frontend HTML & Component Rendering ===");
 

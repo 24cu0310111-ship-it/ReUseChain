@@ -8,7 +8,8 @@
     "start": "next start",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx prisma/seed.ts",
+    "telegram:bots": "tsx scripts/run-telegram-bots.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.2.11",

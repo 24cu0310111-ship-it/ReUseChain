@@ -150,13 +150,23 @@ export default function AdminEscalationsPage() {
                     <strong>Agent Observation:</strong> {esc.symptomSummary}
                   </div>
 
+                  {esc.mediaUrl && (
+                    <div className="rounded-lg overflow-hidden border border-white/10 max-w-xs">
+                      <div className="bg-black/60 px-2 py-0.5 text-[9px] text-cyan-300">Attached Task Manager / Screen Screenshot</div>
+                      <img src={esc.mediaUrl} alt="Attached symptom screenshot" className="w-full object-cover max-h-32" />
+                    </div>
+                  )}
+
                   {esc.telemetrySnippet && (
                     <div className="text-[11px] font-mono text-slate-400 bg-black/40 p-2 rounded truncate">
                       Telemetry Snapshot: {esc.telemetrySnippet}
                     </div>
                   )}
 
-                  <div className="flex justify-end pt-1">
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-purple-300 font-mono flex items-center gap-1">
+                      <Send size={11} className="text-purple-400" /> Telegram Channel Alert Dispatched
+                    </span>
                     <Button
                       size="sm"
                       onClick={() => {

@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import * as crypto from "crypto";
-
-function sha256(data: string): string {
-  return crypto.createHash("sha256").update(data).digest("hex");
-}
+import { recordLearnedResolution } from "@/lib/self-learning-agent";
 
 export async function GET() {
   try {
@@ -29,43 +25,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const updated = await prisma.adminEscalation.update({
-      where: { id: escalationId },
-      data: {
-        adminResponse,
-        learnedRule: learnedRule || "Adaptive rule recorded into persistent knowledge base.",
-        resolvedBy: resolvedBy || "Lead Systems Administrator",
-        status: "resolved",
-      },
+    const result = await recordLearnedResolution({
+      escalationId,
+      adminResponse,
+      learnedRule,
+      resolvedBy: resolvedBy || "Lead Systems Administrator (via Escalations Hub)",
     });
 
-    // Anchor the self-learning milestone into Circularity Passport
-    const dev = updated.deviceId 
-      ? await prisma.device.findUnique({ where: { id: updated.deviceId } })
-      : await prisma.device.findFirst();
-    const deviceId = dev?.id || (await prisma.device.findFirst())?.id;
-
-    if (deviceId) {
-      const eventHash = sha256(`ADMIN_LEARNED:${escalationId}:${adminResponse}:${Date.now()}`);
-      const lastEvent = await prisma.passportEvent.findFirst({ orderBy: { timestamp: "desc" } });
-      const prevHash = lastEvent ? lastEvent.eventHash : "GENESIS_BLOCK_000000000000000000000000000000000000";
-
-      await prisma.passportEvent.create({
-        data: {
-          deviceId,
-          eventCategory: "control",
-          eventType: "SELF_LEARNING_RULE_RECORDED",
-          actor: resolvedBy || "Lead Systems Administrator",
-          description: `Agent learned new rule from admin escalation: ${adminResponse.slice(0, 160)}`,
-          eventHash,
-          prevHash,
-        },
-      });
-    }
+    const updated = await prisma.adminEscalation.findUnique({ where: { id: escalationId } });
 
     return NextResponse.json({
       success: true,
       data: updated,
+      passportHash: result.passportHash,
       message: "Escalation resolved! Knowledge model calibrated and sealed in Circularity Passport.",
     });
   } catch (error: any) {

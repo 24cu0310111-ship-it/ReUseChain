@@ -84,6 +84,7 @@ interface ActionProofDetails {
   // Admin Escalation & Learning
   escalationId?: string;
   adminLiveReply?: string;
+  sampleAdminSolution?: string;
   learnedRule?: string;
   assignedTo?: string;
   urgency?: string;
@@ -189,12 +190,84 @@ export default function DiagnosticAssistantPage() {
   const [devices, setDevices] = useState<any[]>([]);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [photoModalOpen, setPhotoModalOpen] = useState(false);
+  const [attachedPhoto, setAttachedPhoto] = useState<string | null>(null);
+  const [attachedPhotoName, setAttachedPhotoName] = useState<string | null>(null);
+  const [pendingTicketId, setPendingTicketId] = useState<string | null>(null);
+  const [simulatingAdminReply, setSimulatingAdminReply] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to bottom of chat
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, executing]);
+
+  // Polling for live Admin Telegram Reply
+  useEffect(() => {
+    if (!pendingTicketId) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/escalations/status?ticketId=${pendingTicketId}`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data?.status === "resolved" && json.data?.adminResponse) {
+            const adminMsg: ChatMessage = {
+              id: `admin-reply-${Date.now()}`,
+              sender: "admin",
+              text: `👤 Live Reply from ${json.data.resolvedBy || "Lead Systems Administrator"} (via Telegram Bot):\n"${json.data.adminResponse}"`,
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            };
+
+            const learnMsg: ChatMessage = {
+              id: `agent-learn-${Date.now()}`,
+              sender: "agent",
+              text: `🧠 Learned & Self-Improved from Admin Response:\n"${json.data.learnedRule || json.data.adminResponse}"\n\nI have permanently registered this resolution rule in my decision matrix. Future queries with this symptom will now be resolved automatically!`,
+              timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            };
+
+            setMessages((prev) => [...prev, adminMsg, learnMsg]);
+            setPendingTicketId(null);
+          }
+        }
+      } catch (err) {
+        console.warn("Polling escalation status failed:", err);
+      }
+    }, 2500);
+
+    return () => clearInterval(interval);
+  }, [pendingTicketId]);
+
+  const handleSimulateAdminReply = async (ticketId: string, customMessage?: string) => {
+    try {
+      setSimulatingAdminReply(true);
+      await fetch("/api/escalations/status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ticketId,
+          adminResponse: customMessage || "I've reviewed your kernel logs and Task Manager capture. The issue is caused by a race condition in the Wi-Fi PCIe power state (ASPM L1.2). Set power scheme to Maximum Performance and update Realtek WLAN driver to v6001.0.15.341.",
+          learnedRule: "For PCIe ASPM power state collisions, disable ASPM L1.2 in BIOS and enforce High Performance power plan.",
+          resolvedBy: "Lead Systems Administrator (via Telegram Bot)",
+        }),
+      });
+    } catch (e) {
+      console.error("Failed to simulate admin reply:", e);
+    } finally {
+      setSimulatingAdminReply(false);
+    }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setAttachedPhotoName(file.name);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setAttachedPhoto(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Load registered devices for dropdown
   useEffect(() => {
@@ -237,20 +310,23 @@ export default function DiagnosticAssistantPage() {
     ]);
   };
 
-  const executeAction = async (promptText: string, attachedPhoto?: string) => {
+  const executeAction = async (promptText: string, photoOverride?: string) => {
     if (!promptText.trim() || executing) return;
 
+    const photoToSend = photoOverride || attachedPhoto;
     const userMsgId = `user-${Date.now()}`;
     const userMsg: ChatMessage = {
       id: userMsgId,
       sender: "user",
       text: promptText,
       timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      photoUrl: attachedPhoto
+      photoUrl: photoToSend || undefined
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setInputText("");
+    setAttachedPhoto(null);
+    setAttachedPhotoName(null);
     setExecuting(true);
 
     // Contextual status text based on query
@@ -261,8 +337,8 @@ export default function DiagnosticAssistantPage() {
       setStatusMessage("🛠️ Executing live Windows system repairs, power scheme calibrate & DNS cache flush...");
     } else if (lower.includes("book") || lower.includes("technician") || lower.includes("doorstep")) {
       setStatusMessage("🛵 Interfacing with ONDC Services Network & dispatching certified doorstep technician...");
-    } else if (lower.includes("photo") || lower.includes("screen") || lower.includes("bsod")) {
-      setStatusMessage("📸 Analyzing screen capture for kernel stop codes and driver conflicts...");
+    } else if (photoToSend || lower.includes("photo") || lower.includes("screen") || lower.includes("bsod") || lower.includes("task manager")) {
+      setStatusMessage("📸 Analyzing screen capture / Task Manager for abnormal processes and kernel crashes...");
     } else if (lower.includes("keyboard") || lower.includes("key")) {
       setStatusMessage("⌨️ Testing Win32_Keyboard controller and key matrix bus...");
     } else {
@@ -276,7 +352,7 @@ export default function DiagnosticAssistantPage() {
         body: JSON.stringify({
           queryText: promptText,
           assetTag: selectedAsset,
-          photoData: attachedPhoto
+          photoData: photoToSend
         })
       });
 
@@ -293,22 +369,10 @@ export default function DiagnosticAssistantPage() {
             actionDetails: data.actionDetails,
           };
 
-          const adminLiveMsg: ChatMessage = {
-            id: `admin-reply-${Date.now()}`,
-            sender: "admin",
-            text: `👤 Live Reply from Lead Systems Administrator:\n"${data.actionDetails?.adminLiveReply || "I have reviewed your diagnostic log and identified the root cause."}"`,
-            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-          };
-
-          const agentLearnMsg: ChatMessage = {
-            id: `agent-learn-${Date.now()}`,
-            sender: "agent",
-            text: `🧠 Learned from Admin Response:\n"${data.actionDetails?.learnedRule || 'Rule registered in permanent knowledge base.'}"\n\nI have permanently committed this resolution rule to my decision matrix. Future queries with this symptom will now be resolved automatically!`,
-            timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-            actionDetails: data.actionDetails,
-          };
-
-          setMessages((prev) => [...prev, agentEscalateMsg, adminLiveMsg, agentLearnMsg]);
+          setMessages((prev) => [...prev, agentEscalateMsg]);
+          if (data.actionDetails?.escalationId) {
+            setPendingTicketId(data.actionDetails.escalationId);
+          }
         } else {
           const agentMsg: ChatMessage = {
             id: `agent-${Date.now()}`,
@@ -320,14 +384,6 @@ export default function DiagnosticAssistantPage() {
           };
           setMessages((prev) => [...prev, agentMsg]);
         }
-      } else {
-        const errorMsg: ChatMessage = {
-          id: `agent-error-${Date.now()}`,
-          sender: "agent",
-          text: `⚠️ Action encountered an error: ${data.error || "Execution failed"}. Let me know if you want me to retry.`,
-          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-        };
-        setMessages((prev) => [...prev, errorMsg]);
       }
     } catch (err: any) {
       const errorMsg: ChatMessage = {
@@ -393,6 +449,29 @@ export default function DiagnosticAssistantPage() {
               ))}
             </select>
           </div>
+
+          <a
+            href="https://t.me/backuvro_bot"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Backup Telegram Bot: Triage & repair your device directly from your phone if PC is off or showing drive errors"
+            className="flex items-center gap-1.5 bg-purple-950/50 hover:bg-purple-900/50 border border-purple-500/40 px-3 py-1.5 rounded-lg text-xs text-purple-200 transition-colors cursor-pointer"
+          >
+            <Radio className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
+            <span className="hidden md:inline">Offline PC Bot:</span>
+            <span className="font-semibold text-purple-300 underline decoration-purple-500/50">@backuvro_bot</span>
+          </a>
+          <a
+            href="https://t.me/AHackBattle013bot"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Admin Escalation & Self-Learning Bot"
+            className="hidden lg:flex items-center gap-1.5 bg-blue-950/50 hover:bg-blue-900/50 border border-blue-500/40 px-3 py-1.5 rounded-lg text-xs text-blue-200 transition-colors cursor-pointer"
+          >
+            <UserCheck className="w-3.5 h-3.5 text-blue-400" />
+            <span>Admin Bot:</span>
+            <span className="font-semibold text-blue-300 underline decoration-blue-500/50">@AHackBattle013bot</span>
+          </a>
 
           <Button
             variant="outline"
@@ -969,38 +1048,74 @@ export default function DiagnosticAssistantPage() {
                     </div>
                   )}
 
-                  {/* Proof Card 7: Admin Escalation & Autonomous Learning */}
+                  {/* Proof Card 7: Admin Escalation & Autonomous Learning via Telegram */}
                   {msg.actionType === "ADMIN_ESCALATION" && msg.actionDetails && (
                     <div className="bg-slate-950/90 border border-purple-500/40 rounded-xl p-4 space-y-3 shadow-lg shadow-purple-500/5 animate-in fade-in">
                       <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                         <div className="flex items-center gap-2 text-purple-400 font-semibold text-xs">
                           <UserCheck className="w-4 h-4 text-purple-400" />
-                          <span>Escalated to Lead Systems Administrator</span>
+                          <span>Human-in-the-Loop Admin Escalation</span>
                         </div>
                         <Badge variant="purple" className="text-[10px]">
                           Ticket #{msg.actionDetails.escalationId?.slice(0, 8) || "L3-ESC"}
                         </Badge>
                       </div>
 
-                      <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 text-xs space-y-1 text-purple-200">
-                        <div className="font-bold flex items-center gap-1.5 text-purple-300">
-                          <UserCheck className="w-3.5 h-3.5 text-purple-400" />
-                          Live Reply from {msg.actionDetails.assignedTo || "Lead Systems Administrator"}:
+                      {/* Telegram Notification Status */}
+                      <div className="bg-blue-950/40 border border-blue-500/30 rounded-lg p-2.5 text-xs text-blue-200 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <Send className="w-3.5 h-3.5 text-blue-400" />
+                          <span>Dispatched to Lead Admin via <strong>Telegram Bot</strong></span>
                         </div>
-                        <p className="italic text-slate-200 pl-2 border-l-2 border-purple-400 mt-1">
-                          "{msg.actionDetails.adminLiveReply}"
-                        </p>
+                        <Badge variant="cyan" className="text-[9px]">Live Telegram Webhook</Badge>
                       </div>
 
-                      {msg.actionDetails.learnedRule && (
-                        <div className="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5 text-xs space-y-1">
-                          <div className="text-[10px] text-cyan-400 font-mono uppercase flex items-center gap-1">
-                            <Brain className="w-3.5 h-3.5 text-cyan-400" /> Autonomous Agent Learned Rule:
+                      {pendingTicketId === msg.actionDetails.escalationId ? (
+                        <div className="bg-amber-950/30 border border-amber-500/40 rounded-lg p-3 text-xs space-y-2 text-amber-200">
+                          <div className="flex items-center gap-2 font-semibold">
+                            <Clock className="w-4 h-4 text-amber-400 animate-spin" />
+                            <span>Awaiting Live Response from Lead Systems Administrator on Telegram...</span>
                           </div>
-                          <p className="text-slate-300 font-mono text-[11px]">
-                            {msg.actionDetails.learnedRule}
+                          <p className="text-[11px] text-slate-300">
+                            Full diagnostic context (host telemetry, error signature, and screenshot) has been forwarded. The admin's reply will automatically stream here in real time!
                           </p>
+                          <div className="pt-1 flex items-center justify-between gap-2 border-t border-amber-500/20">
+                            <span className="text-[10px] text-slate-400">Testing? Trigger instant response:</span>
+                            <Button
+                              size="sm"
+                              disabled={simulatingAdminReply}
+                              onClick={() => handleSimulateAdminReply(msg.actionDetails!.escalationId!)}
+                              className="bg-purple-600 hover:bg-purple-500 text-white text-[10px] h-6 px-2.5"
+                            >
+                              {simulatingAdminReply ? "Simulating..." : "⚡ Simulate Telegram Reply"}
+                            </Button>
+                          </div>
                         </div>
+                      ) : (
+                        <>
+                          {(msg.actionDetails.adminLiveReply || msg.actionDetails.sampleAdminSolution) && (
+                            <div className="bg-purple-500/10 border border-purple-500/20 rounded-lg p-3 text-xs space-y-1 text-purple-200">
+                              <div className="font-bold flex items-center gap-1.5 text-purple-300">
+                                <UserCheck className="w-3.5 h-3.5 text-purple-400" />
+                                Live Reply from {msg.actionDetails.assignedTo || "Lead Systems Administrator (via Telegram)"}:
+                              </div>
+                              <p className="italic text-slate-200 pl-2 border-l-2 border-purple-400 mt-1">
+                                "{msg.actionDetails.adminLiveReply || msg.actionDetails.sampleAdminSolution}"
+                              </p>
+                            </div>
+                          )}
+
+                          {msg.actionDetails.learnedRule && (
+                            <div className="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5 text-xs space-y-1">
+                              <div className="text-[10px] text-cyan-400 font-mono uppercase flex items-center gap-1">
+                                <Brain className="w-3.5 h-3.5 text-cyan-400" /> Autonomous Agent Learned Rule:
+                              </div>
+                              <p className="text-slate-300 font-mono text-[11px]">
+                                {msg.actionDetails.learnedRule}
+                              </p>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   )}
@@ -1379,13 +1494,41 @@ export default function DiagnosticAssistantPage() {
         </button>
       </div>
 
+      {/* Attached Media Preview Pill */}
+      {attachedPhoto && (
+        <div className="flex items-center gap-2 p-1.5 px-3 bg-cyan-950/70 border border-cyan-500/40 rounded-xl mb-1 text-xs text-cyan-300 w-fit animate-in fade-in shadow-md">
+          <ImageIcon className="w-3.5 h-3.5 text-cyan-400" />
+          <span className="font-medium max-w-[240px] truncate">{attachedPhotoName || "Attached Screenshot / Photo"}</span>
+          <button
+            type="button"
+            onClick={() => { setAttachedPhoto(null); setAttachedPhotoName(null); }}
+            className="text-cyan-400 hover:text-white ml-1 p-0.5 rounded-full hover:bg-cyan-900/40"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Hidden File Input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        accept="image/*"
+        onChange={handleFileUpload}
+        className="hidden"
+      />
+
       {/* Chat Input Bar */}
       <form onSubmit={handleSendPrompt} className="mt-2 relative flex items-center gap-2">
         <button
           type="button"
           onClick={() => setPhotoModalOpen(true)}
-          title="Attach screen photo or BSOD error image"
-          className="h-11 w-11 shrink-0 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 hover:text-cyan-400 hover:border-cyan-500/40 transition-colors"
+          title="Attach Task Manager screenshot or Screen Error photo"
+          className={`h-11 w-11 shrink-0 rounded-xl border flex items-center justify-center transition-colors ${
+            attachedPhoto 
+              ? "bg-cyan-950 border-cyan-500 text-cyan-300 shadow-lg shadow-cyan-500/20"
+              : "bg-slate-900 border-slate-800 text-slate-400 hover:text-cyan-400 hover:border-cyan-500/40"
+          }`}
         >
           <Camera className="w-5 h-5" />
         </button>
@@ -1394,14 +1537,14 @@ export default function DiagnosticAssistantPage() {
           type="text"
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
-          placeholder="Message the agent: e.g. 'My PC is slow and hot, fix it' or 'Book a technician for tomorrow'..."
+          placeholder={attachedPhoto ? "Describe the attached screenshot (or press Send for automatic vision triage)..." : "Message the agent: e.g. 'Abnormal CPU in Task Manager' or 'Book technician for tomorrow'..."}
           disabled={executing}
           className="flex-1 h-11 bg-slate-900/90 border border-slate-800 rounded-xl px-4 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all"
         />
 
         <Button
           type="submit"
-          disabled={!inputText.trim() || executing}
+          disabled={(!inputText.trim() && !attachedPhoto) || executing}
           className="h-11 px-5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium shadow-lg shadow-cyan-500/20 disabled:opacity-40 transition-all flex items-center gap-1.5"
         >
           <Send className="w-4 h-4" />
@@ -1409,14 +1552,14 @@ export default function DiagnosticAssistantPage() {
         </Button>
       </form>
 
-      {/* Optical BSOD / Screen Error Modal */}
+      {/* Optical BSOD / Screen Error & Task Manager Modal */}
       {photoModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-5 space-y-4 shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2 text-white font-semibold">
                 <Camera className="w-5 h-5 text-cyan-400" />
-                <span>Screen Error / Crash Photo Triage</span>
+                <span>Screen & Task Manager Vision Triage</span>
               </div>
               <button
                 onClick={() => setPhotoModalOpen(false)}
@@ -1427,44 +1570,108 @@ export default function DiagnosticAssistantPage() {
             </div>
 
             <p className="text-xs text-slate-300">
-              The agent uses optical inspection to read Stop Codes, QR codes, and kernel memory address crashes directly from photos of your laptop screen.
+              Upload any screenshot or photo of your screen (Task Manager abnormal activity, high CPU runaway process, memory leak, or Blue Screen crash). The vision agent will read and trigger the appropriate diagnostic tool!
             </p>
 
-            {/* Sample Photo Preview */}
-            <div className="rounded-xl overflow-hidden border border-slate-700 bg-slate-950 p-2 space-y-2">
-              <div className="text-[11px] font-semibold text-slate-300 flex items-center justify-between">
-                <span>Sample Crash Photo: Windows BSOD</span>
-                <Badge variant="rose" className="text-[9px]">0x000000D1</Badge>
+            {/* Option 1: Upload from Local Machine */}
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+              <div>
+                <div className="text-xs font-semibold text-white">Upload Screenshot from Your PC</div>
+                <div className="text-[10px] text-slate-400">PNG, JPG, WebP supported (Task Manager, Crash dump)</div>
               </div>
-              <div className="relative rounded-lg overflow-hidden bg-blue-900/60 p-3 text-white font-mono text-[11px] leading-relaxed border border-blue-500/30">
-                <div className="text-2xl mb-1">:(</div>
-                <div>Your device ran into a problem and needs to restart.</div>
-                <div className="text-[10px] text-cyan-200 mt-2">
-                  Stop code: DRIVER_IRQL_NOT_LESS_OR_EQUAL<br/>
-                  What failed: rtwlane601.sys
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2 pt-1">
               <Button
-                className="w-full bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white text-xs h-9 gap-1.5"
+                size="sm"
                 onClick={() => {
                   setPhotoModalOpen(false);
-                  executeAction("Here is a photo of the blue screen crash with Stop Code DRIVER_IRQL_NOT_LESS_OR_EQUAL");
+                  fileInputRef.current?.click();
                 }}
+                className="bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-xs h-8 gap-1.5"
               >
-                <Sparkles className="w-4 h-4" /> Send Sample Crash Photo to Agent
-              </Button>
-
-              <Button
-                variant="outline"
-                className="w-full border-slate-800 text-slate-400 hover:text-white text-xs h-8"
-                onClick={() => setPhotoModalOpen(false)}
-              >
-                Cancel
+                <ImageIcon className="w-3.5 h-3.5" /> Choose File
               </Button>
             </div>
+
+            {/* Option 2: Pre-Configured Optical Scenarios */}
+            <div className="space-y-2">
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Or Select an Anomaly Preset:
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhotoModalOpen(false);
+                    executeAction("Task Manager shows 98.4% CPU runaway process svchost_crypto.exe and thermal throttling", "cpu_runaway");
+                  }}
+                  className="p-2.5 rounded-lg bg-rose-950/30 border border-rose-500/30 hover:border-rose-500/60 text-left transition-colors space-y-1"
+                >
+                  <div className="font-bold text-rose-300 flex items-center gap-1.5">
+                    <Cpu className="w-3.5 h-3.5" /> Task Manager: 99% CPU
+                  </div>
+                  <p className="text-[10px] text-slate-400">Runaway crypto process pegging CPU & throttling clocks</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhotoModalOpen(false);
+                    executeAction("Task Manager shows 95% RAM memory leak in non-paged kernel pool", "memory_leak");
+                  }}
+                  className="p-2.5 rounded-lg bg-amber-950/30 border border-amber-500/30 hover:border-amber-500/60 text-left transition-colors space-y-1"
+                >
+                  <div className="font-bold text-amber-300 flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5" /> Task Manager: 95% RAM
+                  </div>
+                  <p className="text-[10px] text-slate-400">Unpaged pool memory leak choking available memory</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhotoModalOpen(false);
+                    executeAction("Task Manager disk graph pinned at 100% active time with 2400ms latency", "disk_thrash");
+                  }}
+                  className="p-2.5 rounded-lg bg-amber-950/30 border border-amber-500/30 hover:border-amber-500/60 text-left transition-colors space-y-1"
+                >
+                  <div className="font-bold text-amber-300 flex items-center gap-1.5">
+                    <HardDrive className="w-3.5 h-3.5" /> Task Manager: 100% Disk
+                  </div>
+                  <p className="text-[10px] text-slate-400">NVMe drive response time 2450ms under heavy I/O</p>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPhotoModalOpen(false);
+                    executeAction("Here is a photo of the blue screen crash with Stop Code DRIVER_IRQL_NOT_LESS_OR_EQUAL", "bsod_irql");
+                  }}
+                  className="p-2.5 rounded-lg bg-blue-950/30 border border-blue-500/30 hover:border-blue-500/60 text-left transition-colors space-y-1"
+                >
+                  <div className="font-bold text-blue-300 flex items-center gap-1.5">
+                    <Terminal className="w-3.5 h-3.5" /> Windows BSOD 0x000000D1
+                  </div>
+                  <p className="text-[10px] text-slate-400">Crash screen photo pointing to rtwlane601.sys</p>
+                </button>
+              </div>
+            </div>
+
+            {/* Emergency Telegram Bot Option (PC Won't Boot) */}
+            <div className="p-3 bg-purple-950/30 border border-purple-500/30 rounded-xl text-xs space-y-1">
+              <div className="font-bold text-purple-300 flex items-center gap-1.5">
+                <Radio className="w-3.5 h-3.5 text-purple-400" /> PC Won't Boot / Dead Screen?
+              </div>
+              <p className="text-[11px] text-slate-300">
+                If your PC cannot open this web browser, message our Emergency Telegram Bot <strong>@ReUseChainTriageBot</strong> from your mobile phone to upload monitor photos and dispatch repairs.
+              </p>
+            </div>
+
+            <Button
+              variant="outline"
+              className="w-full border-slate-800 text-slate-400 hover:text-white text-xs h-8"
+              onClick={() => setPhotoModalOpen(false)}
+            >
+              Cancel
+            </Button>
           </div>
         </div>
       )}
