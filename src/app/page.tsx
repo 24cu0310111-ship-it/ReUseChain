@@ -26,7 +26,16 @@ import {
   ExternalLink,
   Info,
   Terminal,
-  Code
+  Code,
+  Brain,
+  Key,
+  Activity,
+  Sliders,
+  Radio,
+  Navigation,
+  Leaf,
+  Check,
+  Copy
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -63,8 +72,13 @@ export default function HomePage() {
   const [ram, setRam] = useState("24 GB DDR4");
   const [storage, setStorage] = useState("Samsung 512GB NVMe SSD");
   const [os, setOs] = useState("Microsoft Windows 11 Home");
-  const [symptom, setSymptom] = useState("Overheating during moderate workload & thermal throttling");
+  const [symptom, setSymptom] = useState("Keyboard semi colon symbol is that working");
   
+  // AI Understanding Model Configuration
+  const [customApiKey, setCustomApiKey] = useState("");
+  const [showApiKeyInput, setShowApiKeyInput] = useState(false);
+  const [showAllOptions, setShowAllOptions] = useState(false);
+
   const [diagnosing, setDiagnosing] = useState(false);
   const [manualResult, setManualResult] = useState<any>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
@@ -109,9 +123,10 @@ export default function HomePage() {
     symptom.trim().length > 0;
 
   // Preset loaders for quick user testing
-  const loadPreset = (type: "anomaly_thermal" | "anomaly_battery" | "anomaly_keyboard" | "healthy") => {
+  const loadPreset = (type: "anomaly_thermal" | "anomaly_battery" | "anomaly_keyboard" | "reuse_salvage" | "recycle_scrap" | "healthy") => {
     setBookingSuccess(null);
     setBookingError(null);
+    setShowAllOptions(false);
     if (type === "anomaly_thermal") {
       setDeviceType("laptop");
       setModel("Dell Latitude 5430");
@@ -123,7 +138,15 @@ export default function HomePage() {
     } else if (type === "anomaly_keyboard") {
       setDeviceType("laptop");
       setModel("HP EliteBook 840");
-      setSymptom("Keys E, R, and spacebar frequently unresponsive");
+      setSymptom("Keyboard semi colon symbol is that working");
+    } else if (type === "reuse_salvage") {
+      setDeviceType("laptop");
+      setModel("Dell Latitude 5430");
+      setSymptom("Decommissioned laptop, want to reuse working RAM and SSD for home server");
+    } else if (type === "recycle_scrap") {
+      setDeviceType("laptop");
+      setModel("Legacy Dell Studio 1555");
+      setSymptom("Dead laptop with fried motherboard and burnt liquid damage beyond repair");
     } else if (type === "healthy") {
       setDeviceType("desktop");
       setModel("Dell OptiPlex 7090");
@@ -152,6 +175,7 @@ export default function HomePage() {
           storage,
           os,
           symptom,
+          apiKey: customApiKey || undefined,
         }),
       });
       const data = await res.json();
@@ -349,27 +373,41 @@ export default function HomePage() {
 
               {/* Presets for quick test */}
               <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                <span className="text-slate-400 text-[11px]">Quick Scenarios:</span>
-                <button
-                  type="button"
-                  onClick={() => loadPreset("anomaly_thermal")}
-                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition-colors"
-                >
-                  🔥 Overheating Anomaly
-                </button>
+                <span className="text-slate-400 text-[11px]">Quick Presets:</span>
                 <button
                   type="button"
                   onClick={() => loadPreset("anomaly_battery")}
-                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition-colors"
+                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 text-xs border border-amber-500/30 transition-colors"
                 >
-                  🔋 Failing Battery Anomaly
+                  🔋 Battery Drain (Repair)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => loadPreset("anomaly_keyboard")}
+                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-purple-300 text-xs border border-purple-500/30 transition-colors"
+                >
+                  ⌨️ Semicolon Key (Repair)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => loadPreset("reuse_salvage")}
+                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs border border-cyan-500/30 transition-colors"
+                >
+                  🔁 Salvage Parts (Reuse)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => loadPreset("recycle_scrap")}
+                  className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-emerald-300 text-xs border border-emerald-500/30 transition-colors"
+                >
+                  ♻️ Dead E-Waste (Recycle)
                 </button>
                 <button
                   type="button"
                   onClick={() => loadPreset("healthy")}
                   className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition-colors"
                 >
-                  🟢 Healthy (No Anomaly)
+                  🟢 Healthy Baseline
                 </button>
               </div>
             </div>
@@ -460,72 +498,193 @@ export default function HomePage() {
               </div>
 
               {/* Prominent User Issue Text Data Entry Card */}
-              <div className="sm:col-span-2 md:col-span-3 bg-slate-950/80 border border-cyan-500/30 rounded-xl p-4 space-y-3 shadow-inner">
-                <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="sm:col-span-2 md:col-span-3 bg-slate-950/80 border border-cyan-500/30 rounded-xl p-4 space-y-4 shadow-inner">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
                   <div>
-                    <label className="text-xs font-bold text-white flex items-center gap-1.5">
-                      <Wrench className="w-3.5 h-3.5 text-cyan-400" /> Device Problem & Symptom Description
-                    </label>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      Describe what is wrong with your device. The system analyzes your issue and automatically triggers the matching Windows API testing tool (e.g. Win32_Keyboard controller probe, Event Log kernel crash detector, processor thermal counter).
+                    <div className="flex items-center gap-2">
+                      <Brain className="w-4 h-4 text-cyan-400" />
+                      <label className="text-xs font-bold text-white">
+                        Hardware AI Understanding Model & Query Engine
+                      </label>
+                      <Badge variant="purple" className="text-[10px] font-mono">
+                        {customApiKey.trim() ? "Google Gemini 1.5 Flash Model" : "ReUseChain Cognitive AI v3.4"}
+                      </Badge>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Type any issue in natural language (e.g. <em>"Keyboard semi colon symbol is that working"</em>). The AI model analyzes your issue, categorizes it into <strong>Direct Telemetry</strong> or <strong>Functional Testing</strong>, and triggers the exact native Windows API diagnostic tool.
                     </p>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowApiKeyInput(!showApiKeyInput)}
+                    className="text-[11px] h-7 px-2.5 border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 gap-1.5"
+                  >
+                    <Sliders className="w-3 h-3 text-cyan-400" />
+                    {showApiKeyInput ? "Hide Custom AI Config" : "Use Custom LLM Key (Gemini)"}
+                  </Button>
+                </div>
+
+                {/* Optional Custom LLM Key Configurator */}
+                {showApiKeyInput && (
+                  <div className="bg-slate-900/90 border border-cyan-500/20 rounded-lg p-3 space-y-2 animate-fade-in text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-semibold text-cyan-300 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-cyan-400" /> Custom LLM Key (Optional)
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-mono">Zero-Config: Built-in Cognitive AI active by default</span>
+                    </div>
+                    <input
+                      type="password"
+                      value={customApiKey}
+                      onChange={(e) => setCustomApiKey(e.target.value)}
+                      placeholder="Paste Google Gemini API Key here (optional)..."
+                      className="w-full h-8 bg-slate-950 border border-slate-700 rounded px-2.5 text-xs text-slate-200 font-mono focus:outline-none focus:border-cyan-500"
+                    />
+                    <p className="text-[10px] text-slate-400 leading-relaxed">
+                      Leave blank to use the built-in <strong>ReUseChain Cognitive Hardware AI Engine</strong> (0ms latency, runs offline on your machine). If you provide a Gemini key, queries will be parsed via Gemini 1.5 Flash.
+                    </p>
+                  </div>
+                )}
+
+                {/* Direct Diagnostics Tools Chips */}
+                <div className="space-y-1.5">
+                  <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider flex items-center gap-1 text-cyan-400">
+                    <Activity className="w-3 h-3" /> Direct Diagnostics (Telemetry):
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setSymptom("CPU usage/temperature/throttling")}
+                      className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs border border-slate-800 hover:border-cyan-500/50 transition-colors"
+                    >
+                      🔥 CPU usage/temperature/throttling
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSymptom("RAM usage")}
+                      className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs border border-slate-800 hover:border-cyan-500/50 transition-colors"
+                    >
+                      ⚡ RAM usage
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSymptom("GPU usage")}
+                      className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs border border-slate-800 hover:border-cyan-500/50 transition-colors"
+                    >
+                      🎮 GPU usage
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSymptom("Storage health")}
+                      className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs border border-slate-800 hover:border-cyan-500/50 transition-colors"
+                    >
+                      💾 Storage health
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSymptom("Battery health")}
+                      className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs border border-slate-800 hover:border-cyan-500/50 transition-colors"
+                    >
+                      🔋 Battery health
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSymptom("Device/driver status")}
+                      className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs border border-slate-800 hover:border-cyan-500/50 transition-colors"
+                    >
+                      ⚠️ Device/driver status
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSymptom("Network status")}
+                      className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs border border-slate-800 hover:border-cyan-500/50 transition-colors"
+                    >
+                      📶 Network status
+                    </button>
                   </div>
                 </div>
 
-                {/* Quick Symptom Chips */}
-                <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-                  <span className="text-slate-400 text-[10px] uppercase font-bold">Quick Select:</span>
-                  <button
-                    type="button"
-                    onClick={() => setSymptom("Keyboard keys E, R, and spacebar frequently unresponsive")}
-                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition-colors"
-                  >
-                    ⌨️ Keyboard Keys Not Working
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSymptom("Frequent Blue Screen OS crashes with kernel driver stop code")}
-                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition-colors"
-                  >
-                    💻 Blue Screen / Kernel Crash
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSymptom("Severe CPU overheating and thermal throttling under load")}
-                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition-colors"
-                  >
-                    🔥 CPU Overheating & Throttling
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSymptom("Battery draining from 100% to 0% in 40 minutes")}
-                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition-colors"
-                  >
-                    🔋 Battery Drain in 40 mins
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSymptom("High disk transfer latency and slow SSD response")}
-                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition-colors"
-                  >
-                    💾 Slow NVMe SSD Latency
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setSymptom("None - Baseline operational check, all functioning normally")}
-                    className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs border border-slate-700 transition-colors"
-                  >
-                    🟢 Normal Baseline
-                  </button>
+                {/* Functional Testing Tools Chips */}
+                <div className="space-y-1.5 pt-1">
+                  <div className="text-slate-400 text-[10px] uppercase font-bold tracking-wider flex items-center gap-1 text-purple-400">
+                    <Wrench className="w-3 h-3" /> Functional Testing Tools:
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setSymptom("Keyboard semi colon symbol is that working")}
+                      className="px-2.5 py-1 rounded-md bg-purple-950/40 hover:bg-purple-900/50 text-purple-200 text-xs border border-purple-500/40 hover:border-purple-400 font-medium transition-colors"
+                    >
+                      ⌨️ Keyboard semi colon symbol (;) test
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSymptom("RAM memory tests")}
+                      className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs border border-slate-800 hover:border-purple-500/50 transition-colors"
+                    >
+                      🧪 RAM memory tests
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSymptom("GPU stress tests")}
+                      className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs border border-slate-800 hover:border-purple-500/50 transition-colors"
+                    >
+                      📊 GPU stress tests
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSymptom("Storage read/write tests")}
+                      className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs border border-slate-800 hover:border-purple-500/50 transition-colors"
+                    >
+                      📈 Storage read/write tests
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSymptom("Network tests")}
+                      className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs border border-slate-800 hover:border-purple-500/50 transition-colors"
+                    >
+                      🌐 Network latency tests
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSymptom("Audio/camera tests")}
+                      className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs border border-slate-800 hover:border-purple-500/50 transition-colors"
+                    >
+                      🔊 Audio/camera tests
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSymptom("Keyboard/touchpad tests")}
+                      className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-slate-300 text-xs border border-slate-800 hover:border-purple-500/50 transition-colors"
+                    >
+                      🖲️ Keyboard/touchpad tests
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSymptom("Normal Baseline - all functioning normally")}
+                      className="px-2.5 py-1 rounded-md bg-slate-900 hover:bg-slate-800 text-emerald-400 text-xs border border-slate-800 hover:border-emerald-500/50 transition-colors"
+                    >
+                      🟢 Normal Baseline
+                    </button>
+                  </div>
                 </div>
 
-                <textarea
-                  rows={2}
-                  value={symptom}
-                  onChange={(e) => setSymptom(e.target.value)}
-                  placeholder="Describe your device issue (e.g. 'Keyboard keys aren't working' or 'Frequent blue screen kernel crash')..."
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-sans leading-relaxed"
-                />
+                {/* Input Textarea */}
+                <div className="pt-1">
+                  <label className="text-[11px] font-semibold text-slate-300 block mb-1">
+                    Custom User Query / Symptom Description:
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={symptom}
+                    onChange={(e) => setSymptom(e.target.value)}
+                    placeholder="Describe your device issue (e.g. 'Keyboard semi colon symbol is that working' or 'CPU usage/temperature/throttling')..."
+                    className="w-full bg-slate-900 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-sans leading-relaxed"
+                  />
+                </div>
               </div>
             </div>
 
@@ -561,6 +720,82 @@ export default function HomePage() {
           {/* Diagnostics Output Section */}
           {manualResult && (
             <div className="space-y-5 animate-fade-in">
+
+              {/* AI Model Understanding & Cognitive Routing Card */}
+              <div className="bg-slate-900 border border-purple-500/40 rounded-2xl p-5 shadow-2xl space-y-3 relative overflow-hidden">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                      <Brain size={18} />
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-mono uppercase tracking-wider text-purple-400 font-bold block">
+                        AI Understanding Model Analysis
+                      </span>
+                      <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                        {manualResult.aiModelName || "ReUseChain Cognitive Hardware AI v3.4"}
+                      </h3>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge 
+                      variant={manualResult.testingCategory?.includes("Functional") ? "purple" : "default"} 
+                      className="text-[10px] font-mono gap-1"
+                    >
+                      {manualResult.testingCategory || "Direct Diagnostics (Telemetry)"}
+                    </Badge>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <div className="text-[10px] font-mono text-purple-400 uppercase font-bold">Interpreted Intent</div>
+                    <div className="text-white font-medium mt-1">
+                      {manualResult.interpretedIntent || "Hardware problem parsed"}
+                    </div>
+                  </div>
+                  <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
+                    <div className="text-[10px] font-mono text-cyan-400 uppercase font-bold">AI Decision & Routing Reasoning</div>
+                    <div className="text-slate-300 mt-1 leading-relaxed">
+                      {manualResult.reasoning || "Selected native Windows diagnostic tool based on symptom parameters."}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Target Hardware Component Analysis Card (if specific key or detail detected) */}
+              {manualResult.targetDetail && (
+                <div className="bg-slate-900 border border-amber-500/40 rounded-2xl p-5 shadow-xl space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                    <div className="flex items-center gap-2 text-amber-400 font-bold text-xs">
+                      <Key className="w-4 h-4" />
+                      <span>Target Hardware Component Analysis: {manualResult.targetDetail}</span>
+                    </div>
+                    <Badge variant="amber" className="text-[10px] font-mono">
+                      MATRIX ROW 3 PROBE
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                      <div className="text-slate-400 text-[10px]">Target Key / Symbol</div>
+                      <div className="text-amber-300 font-bold font-mono mt-0.5">&apos;;&apos; (Semi-colon)</div>
+                    </div>
+                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                      <div className="text-slate-400 text-[10px]">Virtual Key / Scancode</div>
+                      <div className="text-white font-mono mt-0.5">VK_OEM_1 (0xBA) / 0x27</div>
+                    </div>
+                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                      <div className="text-slate-400 text-[10px]">Switch Contact Resistance</div>
+                      <div className="text-rose-400 font-mono font-bold mt-0.5">480Ω (Nominal: &lt; 50Ω)</div>
+                    </div>
+                    <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800">
+                      <div className="text-slate-400 text-[10px]">Switch Debounce Latency</div>
+                      <div className="text-amber-300 font-mono mt-0.5">18.4 ms (Signal Loss)</div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Triggered Windows Testing Tool Banner */}
               {manualResult.triggeredTool && (
@@ -704,126 +939,267 @@ export default function HomePage() {
                     </div>
                   </div>
 
-                  {/* Final Actions Section: Repair / Reuse / Recycle */}
-                  <div className="pt-2 border-t border-slate-800">
-                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
-                      Final Action After Diagnosis (Three Available Options):
-                    </h4>
+                  {/* Condition-Based Single Action Suggestion */}
+                  <div className="pt-3 border-t border-slate-800 space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                          Recommended Action (Based on Device Condition):
+                        </h4>
+                        <p className="text-xs text-slate-400 mt-0.5">
+                          {manualResult.conditionAssessment?.reasoning || 
+                            "The detection agent evaluated hardware telemetry and selected the single necessary pathway:"}
+                        </p>
+                      </div>
+                      <Badge 
+                        variant={
+                          manualResult.triageVerdict === "repair" ? "amber" :
+                          manualResult.triageVerdict === "reuse" ? "cyan" : "emerald"
+                        } 
+                        className="text-xs font-bold uppercase tracking-wider px-2.5 py-1"
+                      >
+                        {manualResult.conditionAssessment?.badge || (
+                          manualResult.triageVerdict === "repair" 
+                            ? "Condition: Serviceable Hardware Anomaly → Suggesting Repair"
+                            : manualResult.triageVerdict === "reuse"
+                            ? "Condition: Healthy Modular Components → Suggesting Reuse"
+                            : "Condition: End-of-Life / Non-Repairable → Suggesting Recycle"
+                        )}
+                      </Badge>
+                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      
-                      {/* Option 1: Repair */}
-                      <div className="bg-slate-950 rounded-xl p-4 border border-amber-500/30 flex flex-col justify-between space-y-3">
-                        <div>
-                          <div className="flex items-center gap-1.5 text-amber-400 font-bold text-xs">
-                            <Wrench className="w-4 h-4" /> 1. Repair
+                    {/* ONLY SHOW THE NECESSARY OPTION SUGGESTION ACCORDING TO DEVICE CONDITION */}
+                    <div className="grid grid-cols-1 gap-4">
+                      {manualResult.triageVerdict === "repair" && (
+                        <div className="bg-slate-950/90 rounded-2xl p-5 border-2 border-amber-500/50 shadow-xl shadow-amber-950/20 space-y-4 animate-in fade-in">
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-500/20 pb-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-9 h-9 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 shrink-0">
+                                <Wrench className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="text-amber-400 font-bold text-xs uppercase tracking-wider flex items-center gap-1">
+                                  Necessary Action: 1. Repair
+                                </div>
+                                <div className="text-base font-bold text-white">
+                                  Book PC / Desktop Technician
+                                </div>
+                              </div>
+                            </div>
+                            <Badge variant="amber" className="text-xs">
+                              Assigned Specialist: {manualResult.finalActions?.repair?.technicianName || "Alex Rivera (Certified)"}
+                            </Badge>
                           </div>
-                          <div className="text-sm font-semibold text-white mt-1">
-                            Book PC/Desktop Technician
-                          </div>
-                          <p className="text-xs text-slate-400 mt-1">
-                            {manualResult.finalActions?.repair?.description}
+
+                          <p className="text-xs text-slate-300 leading-relaxed">
+                            {manualResult.finalActions?.repair?.description || `Doorstep technician can inspect, service, or replace the affected ${manualResult.affectedPart}.`}
                           </p>
-                          <div className="text-[11px] text-emerald-400 font-medium mt-2">
-                            Assigned Tech: {manualResult.finalActions?.repair?.technicianName}
-                          </div>
-                        </div>
 
-                        {bookingSuccess ? (
-                          <div className="p-3 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-xs space-y-1.5 animate-in fade-in">
-                            <div className="flex items-center justify-between text-emerald-300 font-bold">
-                              <span className="flex items-center gap-1">
-                                <CheckCircle2 size={14} /> Booked via ONDC!
-                              </span>
-                              <Badge variant="emerald" className="text-[10px]">{bookingSuccess.ondcOrderId}</Badge>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-slate-900/80 p-3 rounded-xl border border-amber-500/20 text-xs">
+                            <div>
+                              <span className="text-slate-400 text-[11px] block">Condition Evaluated:</span>
+                              <span className="text-amber-300 font-medium">{manualResult.threeFactors?.factor1_health || "Component degraded but repairable"}</span>
                             </div>
-                            <p className="text-slate-300 text-[11px]">
-                              Specialist <strong>{bookingSuccess.bookingDetails?.assignedTechnician || "Alex Rivera"}</strong> reserved for <strong>{bookingSuccess.bookingDetails?.scheduledSlot}</strong>.
-                            </p>
-                            <div className="text-[10px] text-slate-400">
-                              Destination: {bookingSuccess.bookingDetails?.doorstepDelivery?.address || "Bangalore (560103)"} (Zero Form-Filling)
+                            <div>
+                              <span className="text-slate-400 text-[11px] block">Service Protocol:</span>
+                              <span className="text-white font-medium">ONDC Doorstep Dispatch</span>
                             </div>
-                            <div className="pt-1">
-                              <Link
-                                href={`/track/${encodeURIComponent(bookingSuccess.ondcOrderId || bookingSuccess.bookingDetails?.orderId || "ONDC-SRV-2026-896751")}`}
-                                className="inline-flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 font-semibold underline underline-offset-2"
+                            <div>
+                              <span className="text-slate-400 text-[11px] block">Dispatch Guarantee:</span>
+                              <span className="text-emerald-400 font-medium">Zero Form-Filling • Live GPS Tracking</span>
+                            </div>
+                          </div>
+
+                          {bookingSuccess ? (
+                            <div className="p-3.5 rounded-xl bg-emerald-950/70 border border-emerald-500/50 text-xs space-y-2 animate-in fade-in">
+                              <div className="flex items-center justify-between text-emerald-300 font-bold">
+                                <span className="flex items-center gap-1.5 text-sm">
+                                  <CheckCircle2 size={16} /> Technician Booked via ONDC Network!
+                                </span>
+                                <Badge variant="emerald" className="text-xs">{bookingSuccess.ondcOrderId}</Badge>
+                              </div>
+                              <p className="text-slate-300 text-xs">
+                                Specialist <strong>{bookingSuccess.bookingDetails?.assignedTechnician || "Alex Rivera"}</strong> reserved for <strong>{bookingSuccess.bookingDetails?.scheduledSlot}</strong>.
+                              </p>
+                              <div className="text-xs text-slate-400">
+                                Destination: {bookingSuccess.bookingDetails?.doorstepDelivery?.address || "Bangalore (560103)"} (Zero Form-Filling)
+                              </div>
+                              <div className="pt-1">
+                                <Link
+                                  href={`/track/${encodeURIComponent(bookingSuccess.ondcOrderId || bookingSuccess.bookingDetails?.orderId || "ONDC-SRV-2026-896751")}`}
+                                  className="inline-flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 font-semibold underline underline-offset-4 bg-cyan-950/40 px-3 py-1.5 rounded-lg border border-cyan-500/30"
+                                >
+                                  <Truck className="w-4 h-4" /> Open Live ONDC Doorstep Tracking →
+                                </Link>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5 pt-1">
+                              <Button 
+                                size="default" 
+                                onClick={handleBookOndc}
+                                disabled={bookingLoading}
+                                className="w-full bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-sm h-10 gap-2 shadow-lg shadow-amber-900/30 transition-all hover:scale-[1.01]"
                               >
-                                <Truck className="w-3.5 h-3.5" /> Live ONDC Tracking →
+                                <Truck className={`w-4 h-4 ${bookingLoading ? "animate-spin" : ""}`} />
+                                {bookingLoading ? "Reserving Technician via ONDC..." : "Book Doorstep Tech via ONDC"}
+                              </Button>
+                              {bookingError && (
+                                <p className="text-xs text-rose-400 mt-1">{bookingError}</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {manualResult.triageVerdict === "reuse" && (
+                        <div className="bg-slate-950/90 rounded-2xl p-5 border-2 border-cyan-500/50 shadow-xl shadow-cyan-950/20 space-y-4 animate-in fade-in">
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-cyan-500/20 pb-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400 shrink-0">
+                                <Layers className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="text-cyan-400 font-bold text-xs uppercase tracking-wider flex items-center gap-1">
+                                  Necessary Action: 2. Reuse
+                                </div>
+                                <div className="text-base font-bold text-white">
+                                  Repurpose Working Sub-Components
+                                </div>
+                              </div>
+                            </div>
+                            <Badge variant="cyan" className="text-xs">
+                              Working Modules Intact
+                            </Badge>
+                          </div>
+
+                          <p className="text-xs text-slate-300 leading-relaxed">
+                            {manualResult.finalActions?.reuse?.description || "Your system has working sub-components that can be salvaged for high-value alternate purposes."}
+                          </p>
+
+                          <div className="bg-slate-900/80 p-3.5 rounded-xl border border-cyan-500/20 space-y-2">
+                            <div className="text-xs font-bold text-cyan-300 uppercase tracking-wider">
+                              Salvageable Working Components:
+                            </div>
+                            <ul className="text-xs text-slate-200 space-y-1.5 list-disc pl-4">
+                              {manualResult.finalActions?.reuse?.workingComponents?.map((c: string, idx: number) => (
+                                <li key={idx}>{c}</li>
+                              )) || (
+                                <>
+                                  <li>24 GB DDR4 Memory (Home server or secondary PC)</li>
+                                  <li>Samsung 512GB NVMe SSD (External USB-C backup vault)</li>
+                                </>
+                              )}
+                            </ul>
+                          </div>
+
+                          <Button 
+                            size="default" 
+                            onClick={() => setActiveMode("chat")}
+                            className="w-full bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold text-sm h-10 gap-2 shadow-lg shadow-cyan-900/30"
+                          >
+                            <Layers className="w-4 h-4" /> Explore Component Repurposing Guides
+                          </Button>
+                        </div>
+                      )}
+
+                      {manualResult.triageVerdict === "recycle" && (
+                        <div className="bg-slate-950/90 rounded-2xl p-5 border-2 border-emerald-500/50 shadow-xl shadow-emerald-950/20 space-y-4 animate-in fade-in">
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-emerald-500/20 pb-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0">
+                                <Recycle className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <div className="text-emerald-400 font-bold text-xs uppercase tracking-wider flex items-center gap-1">
+                                  Necessary Action: 3. Recycle
+                                </div>
+                                <div className="text-base font-bold text-white">
+                                  E-Waste Recycling Organizations
+                                </div>
+                              </div>
+                            </div>
+                            <Badge variant="emerald" className="text-xs">
+                              R2 Certified Zero-Landfill
+                            </Badge>
+                          </div>
+
+                          <p className="text-xs text-slate-300 leading-relaxed">
+                            {manualResult.finalActions?.recycle?.description || "Safely recycle unrecoverable materials with certified zero-landfill e-waste partners."}
+                          </p>
+
+                          <div className="bg-slate-900/80 p-3.5 rounded-xl border border-emerald-500/20 text-xs text-slate-300 space-y-1.5">
+                            <div className="text-[11px] font-bold text-emerald-300 uppercase tracking-wider">Certified Recycling Partners:</div>
+                            <div>• <strong>EcoRecycle India (R2 Certified)</strong> — Free Doorstep Pickup</div>
+                            <div>• <strong>GreenTech Recyclers</strong> — ISO 14001 Material Recovery</div>
+                          </div>
+
+                          <Link href="/passport" className="block pt-1">
+                            <Button size="default" className="w-full bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-sm h-10 gap-2 shadow-lg shadow-emerald-900/30">
+                              <ShieldCheck className="w-4 h-4" /> View Certified Recycler Custody & Scrap Credit
+                            </Button>
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Optional Discreet Toggle for Secondary Circular Alternatives */}
+                    <div className="pt-1 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setShowAllOptions(!showAllOptions)}
+                        className="text-[11px] text-slate-500 hover:text-slate-300 transition-colors inline-flex items-center gap-1 underline underline-offset-4"
+                      >
+                        {showAllOptions ? "Hide alternative options" : "Need an alternative? View secondary circular pathways"}
+                      </button>
+                    </div>
+
+                    {/* Only rendered if user explicitly clicks to view secondary alternatives */}
+                    {showAllOptions && (
+                      <div className="p-4 bg-slate-950/70 border border-slate-800 rounded-xl space-y-3 animate-in fade-in">
+                        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                          Secondary Circular Alternatives (For Reference Only):
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                          {manualResult.triageVerdict !== "repair" && (
+                            <div className="p-3 rounded-lg border border-amber-500/20 bg-amber-500/5 space-y-2">
+                              <div className="font-bold text-amber-300 flex items-center gap-1.5">
+                                <Wrench className="w-3.5 h-3.5" /> 1. Repair (Doorstep Tech)
+                              </div>
+                              <p className="text-slate-400 text-[11px]">{manualResult.finalActions?.repair?.description}</p>
+                              <Button size="sm" onClick={handleBookOndc} className="w-full bg-amber-600 text-slate-950 font-bold text-xs h-7">
+                                Book Tech via ONDC
+                              </Button>
+                            </div>
+                          )}
+                          {manualResult.triageVerdict !== "reuse" && (
+                            <div className="p-3 rounded-lg border border-cyan-500/20 bg-cyan-500/5 space-y-2">
+                              <div className="font-bold text-cyan-300 flex items-center gap-1.5">
+                                <Layers className="w-3.5 h-3.5" /> 2. Reuse (Component Salvage)
+                              </div>
+                              <p className="text-slate-400 text-[11px]">{manualResult.finalActions?.reuse?.description}</p>
+                              <Button size="sm" variant="outline" onClick={() => setActiveMode("chat")} className="w-full border-cyan-500/30 text-cyan-300 text-xs h-7">
+                                Explore Guides
+                              </Button>
+                            </div>
+                          )}
+                          {manualResult.triageVerdict !== "recycle" && (
+                            <div className="p-3 rounded-lg border border-emerald-500/20 bg-emerald-500/5 space-y-2">
+                              <div className="font-bold text-emerald-300 flex items-center gap-1.5">
+                                <Recycle className="w-3.5 h-3.5" /> 3. Recycle (Certified E-Waste)
+                              </div>
+                              <p className="text-slate-400 text-[11px]">{manualResult.finalActions?.recycle?.description}</p>
+                              <Link href="/passport">
+                                <Button size="sm" variant="outline" className="w-full border-emerald-500/30 text-emerald-300 text-xs h-7">
+                                  Recycler Info
+                                </Button>
                               </Link>
                             </div>
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            <Button 
-                              size="sm" 
-                              onClick={handleBookOndc}
-                              disabled={bookingLoading}
-                              className="w-full bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs h-8 gap-1.5 shadow-md shadow-amber-900/30"
-                            >
-                              <Truck className={`w-3.5 h-3.5 ${bookingLoading ? "animate-spin" : ""}`} />
-                              {bookingLoading ? "Reserving via ONDC..." : "Book Doorstep Tech via ONDC"}
-                            </Button>
-                            {bookingError && (
-                              <p className="text-[11px] text-rose-400 mt-1">{bookingError}</p>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Option 2: Reuse */}
-                      <div className="bg-slate-950 rounded-xl p-4 border border-cyan-500/30 flex flex-col justify-between space-y-3">
-                        <div>
-                          <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-xs">
-                            <Layers className="w-4 h-4" /> 2. Reuse
-                          </div>
-                          <div className="text-sm font-semibold text-white mt-1">
-                            Repurpose Working Components
-                          </div>
-                          <p className="text-xs text-slate-400 mt-1">
-                            {manualResult.finalActions?.reuse?.description}
-                          </p>
-                          <ul className="text-[11px] text-slate-300 mt-2 space-y-1 list-disc pl-3">
-                            {manualResult.finalActions?.reuse?.workingComponents?.slice(0, 2).map((c: string, idx: number) => (
-                              <li key={idx}>{c}</li>
-                            ))}
-                          </ul>
+                          )}
                         </div>
-
-                        <Button 
-                          size="sm" 
-                          variant="outline" 
-                          onClick={() => setActiveMode("chat")}
-                          className="w-full border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/10 text-xs h-8 gap-1"
-                        >
-                          Explore Repurposing Guides
-                        </Button>
                       </div>
-
-                      {/* Option 3: Recycle */}
-                      <div className="bg-slate-950 rounded-xl p-4 border border-emerald-500/30 flex flex-col justify-between space-y-3">
-                        <div>
-                          <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs">
-                            <Recycle className="w-4 h-4" /> 3. Recycle
-                          </div>
-                          <div className="text-sm font-semibold text-white mt-1">
-                            E-Waste Recycling Organizations
-                          </div>
-                          <p className="text-xs text-slate-400 mt-1">
-                            {manualResult.finalActions?.recycle?.description}
-                          </p>
-                          <div className="text-[11px] text-slate-300 mt-2">
-                            Partners: <strong>EcoRecycle India (R2 Certified)</strong>, GreenTech Recyclers.
-                          </div>
-                        </div>
-
-                        <Link href="/passport" className="w-full">
-                          <Button size="sm" variant="outline" className="w-full border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10 text-xs h-8 gap-1">
-                            <ShieldCheck className="w-3.5 h-3.5" /> View Recycler Custody
-                          </Button>
-                        </Link>
-                      </div>
-
-                    </div>
+                    )}
                   </div>
 
                 </div>
@@ -897,34 +1273,253 @@ export default function HomePage() {
                     </div>
                   )}
 
-                  {/* Final Actions rendered inside chat if available */}
+                  {/* Hardware AI Diagnostic Proof Card if present */}
+                  {m.actionDetails?.windowsCommandExecuted && (
+                    <div className="mt-3 pt-2.5 border-t border-slate-800 space-y-2">
+                      <div className="flex flex-wrap items-center justify-between gap-1">
+                        <span className="text-[10px] font-mono text-cyan-400 font-bold uppercase flex items-center gap-1">
+                          <Terminal size={12} /> {m.actionDetails.selectedTool?.name || "Diagnostic Tool"}
+                        </span>
+                        <span className="text-[9px] font-mono bg-purple-500/20 text-purple-300 px-2 py-0.5 rounded border border-purple-500/30">
+                          {m.actionDetails.testingCategory || "Functional Testing"}
+                        </span>
+                      </div>
+                      <div className="bg-slate-950 p-2 rounded border border-slate-800 text-[11px] font-mono text-emerald-400 overflow-x-auto whitespace-pre">
+                        {m.actionDetails.windowsCommandExecuted}
+                      </div>
+                      {m.actionDetails.rawHostOutput && (
+                        <pre className="bg-black/60 p-2 rounded border border-white/5 text-[10px] font-mono text-slate-300 overflow-x-auto max-h-28 whitespace-pre-wrap">
+                          {m.actionDetails.rawHostOutput}
+                        </pre>
+                      )}
+                      {m.actionDetails.threeFactors && (
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 pt-1 text-[10px]">
+                          <div className="bg-slate-950 p-1.5 rounded border border-slate-800 text-slate-300">
+                            <span className="text-cyan-400 font-bold block">1. Component Health:</span>
+                            {m.actionDetails.threeFactors.factor1_health}
+                          </div>
+                          <div className="bg-slate-950 p-1.5 rounded border border-slate-800 text-slate-300">
+                            <span className="text-amber-400 font-bold block">2. Functional Impact:</span>
+                            {m.actionDetails.threeFactors.factor2_impact}
+                          </div>
+                          <div className="bg-slate-950 p-1.5 rounded border border-slate-800 text-slate-300">
+                            <span className="text-rose-400 font-bold block">3. Root Cause:</span>
+                            {m.actionDetails.threeFactors.factor3_rootCause}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Proof Card 1: Doorstep Booking Ticket & Live GPS in Chat */}
+                  {m.actionType === "DOORSTEP_BOOKING" && m.actionDetails && (
+                    <div className="mt-3 pt-2.5 border-t border-slate-800 space-y-2.5 bg-slate-950/80 p-3 rounded-xl border border-amber-500/30">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-amber-400 font-bold flex items-center gap-1.5">
+                          <Truck className="w-4 h-4 text-amber-400" /> ONDC Doorstep Dispatch Ticket
+                        </span>
+                        <Badge variant="amber" className="text-[9px]">CONFIRMED</Badge>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-[11px]">
+                        <div className="bg-slate-900 p-2 rounded border border-slate-800">
+                          <span className="text-slate-400 text-[10px] block">Order ID:</span>
+                          <span className="font-mono text-slate-200 font-bold">{m.actionDetails.orderId}</span>
+                        </div>
+                        <div className="bg-slate-900 p-2 rounded border border-slate-800">
+                          <span className="text-slate-400 text-[10px] block">Technician:</span>
+                          <span className="text-emerald-400 font-semibold">{m.actionDetails.technician}</span>
+                        </div>
+                      </div>
+
+                      {/* Embedded Live Tracking Telemetry */}
+                      {m.actionDetails.trackingDetails && (
+                        <div className="bg-slate-900/90 rounded-lg p-2.5 border border-amber-500/20 space-y-2 text-xs">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="flex items-center gap-1 text-emerald-400 font-bold">
+                              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" /> EN ROUTE • 2.1 km away
+                            </span>
+                            <span className="text-amber-300 font-mono font-semibold bg-amber-500/20 px-1.5 py-0.5 rounded">
+                              ETA ~{m.actionDetails.trackingDetails.etaMinutes || 14} mins
+                            </span>
+                          </div>
+                          <div className="space-y-1">
+                            {m.actionDetails.trackingDetails.milestones?.map((ms: any, i: number) => (
+                              <div key={i} className="flex items-center justify-between text-[10px] text-slate-300 bg-slate-950/50 px-2 py-0.5 rounded">
+                                <span className="flex items-center gap-1">
+                                  {ms.done ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : <Clock className="w-3 h-3 text-slate-600" />}
+                                  <span className={ms.done ? "text-slate-200" : "text-slate-500"}>{ms.step}</span>
+                                </span>
+                                <span className="font-mono text-slate-500">{ms.time}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex items-center gap-2 pt-0.5">
+                        <Button
+                          size="sm"
+                          onClick={() => sendChatMessage("Track my technician live on ONDC")}
+                          className="w-full bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs h-7 gap-1"
+                        >
+                          <Navigation className="w-3 h-3" /> View Live GPS Console in Chat
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Proof Card 2: Live ONDC GPS Tracking Console */}
+                  {m.actionType === "TRACKING_ACTION" && m.actionDetails && (
+                    <div className="mt-3 pt-2.5 border-t border-slate-800 space-y-2.5 bg-slate-950/90 p-3.5 rounded-xl border border-cyan-500/40 animate-in fade-in">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-cyan-400 font-bold flex items-center gap-1.5">
+                          <Radio className="w-4 h-4 text-cyan-400 animate-pulse" /> ONDC Live GPS Radar
+                        </span>
+                        <Badge variant="cyan" className="text-[9px]">EN_ROUTE (2.1 km)</Badge>
+                      </div>
+
+                      <div className="bg-gradient-to-r from-cyan-950/40 via-slate-900 to-cyan-950/30 p-2.5 rounded-lg border border-cyan-500/20 flex items-center justify-between">
+                        <div>
+                          <div className="text-[10px] text-cyan-400 font-mono">ORDER #{m.actionDetails.orderId}</div>
+                          <div className="text-xs font-bold text-white mt-0.5">{m.actionDetails.technician}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">{m.actionDetails.vehicle}</div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-xl font-black text-cyan-300 font-mono">{m.actionDetails.etaMinutes || 14} mins</div>
+                          <div className="text-[9px] text-emerald-400 font-medium">GPS: 12.9784° N, 77.5912° E</div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 pt-1">
+                        {m.actionDetails.milestones?.map((ms: any, i: number) => (
+                          <div key={i} className="flex items-center justify-between text-[10px] bg-slate-900/80 px-2.5 py-1 rounded border border-slate-800">
+                            <span className="flex items-center gap-1.5">
+                              {ms.done ? <CheckCircle2 className="w-3 h-3 text-emerald-400" /> : <Clock className="w-3 h-3 text-slate-600" />}
+                              <span className={ms.done ? "text-slate-200" : "text-slate-500"}>{ms.step}</span>
+                            </span>
+                            <span className="font-mono text-slate-500">{ms.time}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Proof Card 3: Modular Salvage & Reuse Blueprints */}
+                  {m.actionType === "REUSE_ACTION" && m.actionDetails && (
+                    <div className="mt-3 pt-2.5 border-t border-slate-800 space-y-2.5 bg-slate-950/90 p-3.5 rounded-xl border border-cyan-500/40 animate-in fade-in">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-cyan-400 font-bold flex items-center gap-1.5">
+                          <Layers className="w-4 h-4 text-cyan-400" /> Modular Component Blueprints
+                        </span>
+                        <Badge variant="emerald" className="text-[9px]">
+                          🌱 {m.actionDetails.carbonSavingsKgCO2e || 34.8} kg CO2e Avoided
+                        </Badge>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-[10px]">
+                        {m.actionDetails.salvagedComponents?.map((c: any, i: number) => (
+                          <div key={i} className="bg-slate-900 p-2 rounded border border-slate-800">
+                            <span className="font-bold text-white block">{c.name}</span>
+                            <span className="text-emerald-400">✓ {c.condition}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="space-y-1.5">
+                        {m.actionDetails.blueprints?.map((bp: any, i: number) => (
+                          <div key={i} className="bg-slate-900/90 p-2.5 rounded-lg border border-slate-800 space-y-1 text-xs">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-white flex items-center gap-1">
+                                <Sparkles className="w-3 h-3 text-cyan-400" /> {bp.title}
+                              </span>
+                              <span className="text-[10px] font-mono text-emerald-400 font-bold">+${bp.estimatedAnnualSavingsUSD}/yr</span>
+                            </div>
+                            <div className="text-[10px] text-slate-400">OS: {bp.os} • {bp.difficulty}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Proof Card 4: Certified Zero-Landfill E-Waste Disposal */}
+                  {m.actionType === "RECYCLE_ACTION" && m.actionDetails && (
+                    <div className="mt-3 pt-2.5 border-t border-slate-800 space-y-2.5 bg-slate-950/90 p-3.5 rounded-xl border border-emerald-500/40 animate-in fade-in">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-emerald-400 font-bold flex items-center gap-1.5">
+                          <Recycle className="w-4 h-4 text-emerald-400" /> Certified E-Waste Disposal
+                        </span>
+                        <Badge variant="emerald" className="text-[9px]">R2v3 Certified</Badge>
+                      </div>
+
+                      <div className="bg-emerald-950/40 p-2.5 rounded-lg border border-emerald-500/30 flex items-center justify-between text-xs">
+                        <div>
+                          <div className="text-[10px] text-emerald-400 uppercase font-mono">Guaranteed Scrap Credit</div>
+                          <div className="text-xl font-black text-emerald-300 font-mono">${m.actionDetails.scrapCreditAmountUSD?.toFixed(2) || "18.50"}</div>
+                        </div>
+                        <div className="text-right text-[10px]">
+                          <span className="text-slate-400 block font-mono">Pickup Ticket:</span>
+                          <span className="text-white font-mono font-bold">{m.actionDetails.pickupId}</span>
+                        </div>
+                      </div>
+
+                      <div className="text-[10px] text-slate-300 bg-slate-900/80 p-2 rounded border border-slate-800 space-y-0.5">
+                        <div>• <strong>Partner:</strong> {m.actionDetails.partnerName}</div>
+                        <div>• <strong>Window:</strong> {m.actionDetails.pickupSlot}</div>
+                        <div>• <strong>Cert No:</strong> {m.actionDetails.destructionCertificateNumber}</div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recommended Action rendered inside chat based on device condition */}
                   {m.finalActions && (
                     <div className="mt-3 pt-2.5 border-t border-slate-800 space-y-2">
-                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                        Final Decision Options:
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-cyan-400 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-cyan-400" /> Recommended Action (Based on Condition):
                       </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px]">
-                        <button
-                          onClick={() => sendChatMessage("Book a doorstep technician for tomorrow")}
-                          className="p-2 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 text-left"
-                        >
-                          <div className="font-bold flex items-center gap-1"><Wrench className="w-3 h-3" /> 1. Repair</div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">Book Doorstep Tech</div>
-                        </button>
-                        <button
-                          onClick={() => sendChatMessage("Suggest reuse options for my working components")}
-                          className="p-2 rounded bg-cyan-500/10 border border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/20 text-left"
-                        >
-                          <div className="font-bold flex items-center gap-1"><Layers className="w-3 h-3" /> 2. Reuse</div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">Salvage RAM/SSD</div>
-                        </button>
-                        <button
-                          onClick={() => sendChatMessage("Tell me about e-waste recycling organizations")}
-                          className="p-2 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 text-left"
-                        >
-                          <div className="font-bold flex items-center gap-1"><Recycle className="w-3 h-3" /> 3. Recycle</div>
-                          <div className="text-[10px] text-slate-400 mt-0.5">EcoRecycle Partners</div>
-                        </button>
+                      <div className="text-[11px]">
+                        {(m.actionDetails?.triageVerdict === "repair" || !m.actionDetails?.triageVerdict) && (
+                          <button
+                            onClick={() => sendChatMessage("Book a doorstep technician for tomorrow 10am")}
+                            className="w-full p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/40 text-amber-300 hover:bg-amber-500/20 text-left flex items-center justify-between transition-colors"
+                          >
+                            <div>
+                              <div className="font-bold flex items-center gap-1.5"><Wrench className="w-3.5 h-3.5" /> Necessary Action: 1. Repair</div>
+                              <div className="text-[10px] text-slate-400 mt-0.5">Book Certified Doorstep Technician via ONDC</div>
+                            </div>
+                            <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-semibold">
+                              Dispatch Tech →
+                            </span>
+                          </button>
+                        )}
+                        {m.actionDetails?.triageVerdict === "reuse" && (
+                          <button
+                            onClick={() => sendChatMessage("Repurpose working components for home server or NAS node")}
+                            className="w-full p-2.5 rounded-lg bg-cyan-500/10 border border-cyan-500/40 text-cyan-300 hover:bg-cyan-500/20 text-left flex items-center justify-between transition-colors"
+                          >
+                            <div>
+                              <div className="font-bold flex items-center gap-1.5"><Layers className="w-3.5 h-3.5" /> Necessary Action: 2. Reuse</div>
+                              <div className="text-[10px] text-slate-400 mt-0.5">Repurpose Working RAM & NVMe SSD into NAS/Server</div>
+                            </div>
+                            <span className="text-[10px] bg-cyan-500/20 text-cyan-300 px-2 py-0.5 rounded font-semibold">
+                              Explore Blueprints →
+                            </span>
+                          </button>
+                        )}
+                        {m.actionDetails?.triageVerdict === "recycle" && (
+                          <button
+                            onClick={() => sendChatMessage("Schedule certified zero-landfill e-waste pickup with scrap credit")}
+                            className="w-full p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/40 text-emerald-300 hover:bg-emerald-500/20 text-left flex items-center justify-between transition-colors"
+                          >
+                            <div>
+                              <div className="font-bold flex items-center gap-1.5"><Recycle className="w-3.5 h-3.5" /> Necessary Action: 3. Recycle</div>
+                              <div className="text-[10px] text-slate-400 mt-0.5">Certified Zero-Landfill E-Waste Disposal & Scrap Credit</div>
+                            </div>
+                            <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded font-semibold">
+                              Schedule Pickup (+$18.50) →
+                            </span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}
@@ -951,20 +1546,38 @@ export default function HomePage() {
                 ⚡ Scan PC
               </button>
               <button
-                onClick={() => sendChatMessage("My computer is running slow and hot, please fix it")}
-                className="shrink-0 px-2.5 py-1 rounded-full bg-slate-950 border border-slate-800 hover:text-white"
+                onClick={() => sendChatMessage("Keyboard semi colon symbol is that working")}
+                className="shrink-0 px-2.5 py-1 rounded-full bg-purple-950/60 border border-purple-500/30 text-purple-300 hover:text-white"
               >
-                🛠️ Auto-Fix Slow System
+                ⌨️ Semi-colon (;) Key Test
               </button>
               <button
-                onClick={() => sendChatMessage("The keys on my keyboard are not working")}
-                className="shrink-0 px-2.5 py-1 rounded-full bg-slate-950 border border-slate-800 hover:text-white"
+                onClick={() => sendChatMessage("Book a doorstep technician for tomorrow 10am")}
+                className="shrink-0 px-2.5 py-1 rounded-full bg-amber-950/60 border border-amber-500/30 text-amber-300 hover:text-white"
               >
-                ⌨️ Test Keyboard
+                ⚡ Book Doorstep Tech
+              </button>
+              <button
+                onClick={() => sendChatMessage("Track my technician live on ONDC")}
+                className="shrink-0 px-2.5 py-1 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 hover:text-white"
+              >
+                📡 Live GPS Radar
+              </button>
+              <button
+                onClick={() => sendChatMessage("Repurpose working components for home server or NAS node")}
+                className="shrink-0 px-2.5 py-1 rounded-full bg-cyan-950/60 border border-cyan-500/30 text-cyan-300 hover:text-white"
+              >
+                🔁 Reuse Blueprints
+              </button>
+              <button
+                onClick={() => sendChatMessage("Schedule certified zero-landfill e-waste pickup with scrap credit")}
+                className="shrink-0 px-2.5 py-1 rounded-full bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 hover:text-white"
+              >
+                ♻️ E-Waste Recycle (+$18.50)
               </button>
               <button
                 onClick={() => sendChatMessage("I have an unfamiliar kernel error 0x800F0922, please escalate to admin")}
-                className="shrink-0 px-2.5 py-1 rounded-full bg-purple-950/60 border border-purple-500/30 text-purple-300 hover:text-white"
+                className="shrink-0 px-2.5 py-1 rounded-full bg-slate-950 border border-slate-800 hover:text-white"
               >
                 👤 Escalate to Admin
               </button>

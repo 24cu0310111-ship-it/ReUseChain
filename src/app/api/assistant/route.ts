@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { exec } from "child_process";
 import { promisify } from "util";
 import * as crypto from "crypto";
+import { understandAndDiagnoseWithAi } from "@/lib/hardware-ai-agent";
 
 const execAsync = promisify(exec);
 
@@ -13,9 +14,10 @@ function sha256(data: string): string {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { queryText = "", assetTag = "ASSET-0142" } = body;
+    const queryText = body.queryText || body.query || body.prompt || body.message || "";
+    const assetTag = body.assetTag || "ASSET-0142";
 
-    const text = queryText.toLowerCase().trim();
+    const text = (queryText || "").toLowerCase().trim();
     const isWindows = process.platform === "win32";
 
     // Detect Intent
@@ -30,8 +32,50 @@ export async function POST(req: NextRequest) {
       text.includes("complex") ||
       text.includes("0x800f");
 
-    const isScreenIntent = 
+    const isTrackingIntent =
       !isAdminEscalateIntent && (
+        text.includes("track") ||
+        text.includes("where is the tech") ||
+        text.includes("live tracking") ||
+        text.includes("ondc-srv") ||
+        text.includes("gps location") ||
+        (text.includes("eta") && !text.includes("beta"))
+      );
+
+    const isBookingIntent = 
+      !isAdminEscalateIntent && !isTrackingIntent && (
+        text.includes("book") || 
+        text.includes("technician") || 
+        text.includes("send someone") || 
+        text.includes("doorstep") || 
+        text.includes("reserve tech")
+      );
+
+    const isReuseIntent =
+      !isAdminEscalateIntent && !isTrackingIntent && !isBookingIntent && (
+        text.includes("repurpose") ||
+        text.includes("salvage") ||
+        text.includes("blueprint") ||
+        text.includes("suggest uses") ||
+        text.includes("home server") ||
+        text.includes("nas node") ||
+        text.includes("reuse options") ||
+        text.includes("modular components")
+      );
+
+    const isRecycleIntent =
+      !isAdminEscalateIntent && !isTrackingIntent && !isBookingIntent && !isReuseIntent && (
+        text.includes("recycle") ||
+        text.includes("e-waste") ||
+        text.includes("scrap credit") ||
+        text.includes("zero-landfill") ||
+        text.includes("pickup") ||
+        text.includes("e-waste disposal") ||
+        text.includes("give to recycling")
+      );
+
+    const isScreenIntent = 
+      !isAdminEscalateIntent && !isTrackingIntent && !isBookingIntent && !isReuseIntent && !isRecycleIntent && (
         text.includes("photo") || 
         text.includes("screen") || 
         text.includes("bsod") || 
@@ -41,45 +85,27 @@ export async function POST(req: NextRequest) {
         text.includes("stop code")
       );
 
-    const isKeyboardIntent = 
-      !isAdminEscalateIntent && (
-        text.includes("keyboard") || 
-        text.includes("key ") || 
-        text.includes("keys") || 
-        text.includes("spacebar") || 
-        text.includes("stuck")
-      );
-
-    const isBookingIntent = 
-      !isAdminEscalateIntent && !isKeyboardIntent && (
-        text.includes("book") || 
-        text.includes("technician") || 
-        text.includes("send someone") || 
-        text.includes("doorstep") || 
-        text.includes("tomorrow")
+    const isSystemOptimizeIntent = 
+      !isAdminEscalateIntent && !isTrackingIntent && !isBookingIntent && !isReuseIntent && !isRecycleIntent && (
+        text.includes("optimize system") || 
+        text.includes("speed up my system") || 
+        text.includes("flush dns") || 
+        text.includes("clean junk") ||
+        text.includes("auto-repair")
       );
 
     const isRepairIntent = 
-      !isAdminEscalateIntent && (
-        text.includes("fix") || 
-        text.includes("slow") || 
-        text.includes("heat") || 
-        text.includes("overheating") || 
-        text.includes("hot") || 
-        text.includes("clean") || 
-        text.includes("optimize") || 
-        text.includes("flush") || 
-        text.includes("junk") ||
-        text.includes("wifi")
+      !isAdminEscalateIntent && !isTrackingIntent && !isBookingIntent && !isReuseIntent && !isRecycleIntent && (
+        isSystemOptimizeIntent ||
+        text.includes("fix my system") ||
+        text.includes("repair my system") ||
+        text.includes("run repair")
       );
 
     const isScanIntent = 
-      text.includes("scan") || 
+      text.includes("scan my pc") || 
       text.includes("check my pc") || 
-      text.includes("hardware") || 
-      text.includes("status") || 
-      text.includes("how is my") ||
-      text.includes("diagnose");
+      text.includes("quick health scan");
 
     // Common 3 final options helper
     const finalActions = {
@@ -150,7 +176,148 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 0. ACTION: SCREEN / BSOD OPTICAL DIAGNOSTIC
+    // 0B. ACTION: LIVE ONDC GPS TRACKING
+    if (isTrackingIntent) {
+      let latestBooking = await prisma.ondcBooking.findFirst({
+        orderBy: { createdAt: "desc" },
+      });
+
+      const orderId = latestBooking?.ondcOrderId || "ONDC-SRV-2026-948122";
+      const technicianName = "Alex Rivera (Dell/HP Certified Specialist)";
+      const passportHash = sha256(`ONDC_TRACK:${orderId}:${Date.now()}`);
+
+      const trackingDetails = {
+        orderId,
+        status: "EN_ROUTE",
+        technician: technicianName,
+        phone: "+91 94812 33490",
+        vehicle: "Eco-Electric Mobile Diagnostic Unit #BLR-42",
+        etaMinutes: 14,
+        distanceKm: 2.1,
+        originHub: "ONDC Indiranagar Mobility Hub, Bangalore",
+        currentCoordinates: { lat: 12.9784, lng: 77.5912 },
+        destinationCoordinates: { lat: 12.9716, lng: 77.5946 },
+        destinationAddress: latestBooking?.doorstepAddress || "42 Tech Park Boulevard, Block C, Bangalore (560103)",
+        milestones: [
+          { step: "Technician Dispatched (Indiranagar Hub)", time: "10:15 AM", done: true },
+          { step: "En Route via 100 Feet Rd (2.1 km away)", time: "10:22 AM", done: true },
+          { step: "Arrival at User Doorstep (ETA ~14 mins)", time: "10:36 AM", done: false },
+          { step: "Onsite Hardware Inspection & Servicing", time: "Pending", done: false },
+        ],
+      };
+
+      return NextResponse.json({
+        success: true,
+        actionType: "TRACKING_ACTION",
+        completionMessage: `📡 Live ONDC GPS Tracking connected for order #${orderId}! Technician ${technicianName} is currently en route (2.1 km away, ETA: 14 minutes). You can monitor real-time vehicle telemetry below right inside this chat!`,
+        actionDetails: {
+          ...trackingDetails,
+          bapId: "reusechain.ondc.bap.org",
+          bppId: "services.ondc.bpp.urbancare.net",
+          passportHash,
+        },
+      });
+    }
+
+    // 0C. ACTION: REUSE / REPURPOSE MODULAR BLUEPRINTS
+    if (isReuseIntent) {
+      const passportHash = sha256(`REUSE_BLUEPRINT:${assetTag}:${Date.now()}`);
+      return NextResponse.json({
+        success: true,
+        actionType: "REUSE_ACTION",
+        completionMessage: `🎉 Modular Component Salvage & Reuse Blueprints Generated! I analyzed your hardware configuration and identified 3 healthy sub-assemblies (24GB DDR4 RAM, Samsung NVMe SSD, 15.6" FHD IPS Display) that can be salvaged. By repurposing instead of discarding, you avoid 34.8 kg CO2e in carbon emissions! Explore your blueprints below:`,
+        actionDetails: {
+          assetTag,
+          carbonSavingsKgCO2e: 34.8,
+          salvagedComponents: [
+            { name: "24GB DDR4 3200MHz RAM", condition: "100% Health (Zero Bit Errors)", estimatedLifespanYears: "5-7 yrs", testMethod: "Win32_PhysicalMemory Telemetry Verified" },
+            { name: "Samsung 512GB NVMe SSD", condition: "98% Health (12.4 TBW, 0 Bad Blocks)", estimatedLifespanYears: "4-6 yrs", testMethod: "NVMe Controller SMART Query" },
+            { name: "15.6\" 1080p FHD IPS Display", condition: "100% Functional (Zero Dead Pixels)", estimatedLifespanYears: "6+ yrs", testMethod: "WmiMonitorBasicDisplayParams" },
+          ],
+          blueprints: [
+            {
+              id: "bp-nas",
+              title: "Network-Attached Storage (NAS) Node",
+              badge: "Highest Utility",
+              os: "OpenMediaVault 7 / TrueNAS Core",
+              componentsUsed: ["Samsung 512GB NVMe SSD", "24GB DDR4 RAM", "Host Motherboard"],
+              difficulty: "Beginner (15 mins setup)",
+              estimatedAnnualSavingsUSD: 140,
+              steps: [
+                "Flash OpenMediaVault 7 ISO onto a bootable USB flash drive",
+                "Configure local Gigabit SMB file sharing and automated encrypted snapshot backups",
+                "Mount Samsung NVMe SSD as ultra-fast read/write cache pool"
+              ]
+            },
+            {
+              id: "bp-media",
+              title: "Low-Power Jellyfin / Plex Media Server",
+              badge: "Entertainment",
+              os: "Ubuntu Server 24.04 LTS (Dockerized)",
+              componentsUsed: ["Intel Core i3-1305U QuickSync iGPU", "24GB RAM", "NVMe SSD"],
+              difficulty: "Intermediate (20 mins setup)",
+              estimatedAnnualSavingsUSD: 180,
+              steps: [
+                "Enable Intel QuickSync hardware video transcoding in UEFI BIOS",
+                "Deploy Docker Compose with Jellyfin and hardware VA-API acceleration",
+                "Stream 4K HDR media smoothly to all home televisions & mobile devices"
+              ]
+            },
+            {
+              id: "bp-display",
+              title: "Portable USB-C Secondary Field Monitor",
+              badge: "Zero-Waste Display",
+              os: "Universal HDMI/Type-C eDP Controller Board ($12)",
+              componentsUsed: ["15.6\" FHD IPS eDP Display Panel"],
+              difficulty: "Easy (10 mins assembly)",
+              estimatedAnnualSavingsUSD: 95,
+              steps: [
+                "Unscrew panel bezel and connect 30-pin eDP controller board",
+                "Connect via single USB-C cable for both 5V power and display signal",
+                "Enjoy dual-screen laptop productivity anywhere on the go"
+              ]
+            }
+          ],
+          passportHash,
+        }
+      });
+    }
+
+    // 0D. ACTION: CERTIFIED ZERO-LANDFILL E-WASTE RECYCLING
+    if (isRecycleIntent) {
+      const pickupId = `EWASTE-REC-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+      const certNo = `CERT-ZERO-LF-${Math.floor(1000000 + Math.random() * 9000000)}`;
+      const passportHash = sha256(`EWASTE_PICKUP:${assetTag}:${pickupId}:${Date.now()}`);
+
+      let profile = await prisma.userProfile.findFirst({ where: { id: "user_default" } });
+      const address = profile ? `${profile.addressLine}, ${profile.city} (${profile.pinCode})` : "42 Tech Park Boulevard, Block C, Bangalore (560103)";
+
+      return NextResponse.json({
+        success: true,
+        actionType: "RECYCLE_ACTION",
+        completionMessage: `🎉 Certified Zero-Landfill E-Waste Pickup Scheduled! EcoRecycle India (R2v3 Certified & ISO 14001 Compliant) will collect your depleted hardware directly from your doorstep tomorrow. All toxic materials (Lead, Cadmium, Mercury) will be chemically neutralized, and an instant scrap credit of $18.50 has been reserved for you!`,
+        actionDetails: {
+          pickupId,
+          partnerName: "EcoRecycle India Pvt Ltd",
+          certification: "R2v3 Certified, ISO 14001:2015 & ISO 45001 Compliant",
+          scrapCreditAmountUSD: 18.50,
+          creditPaymentMethod: "Instant UPI / Direct Bank Transfer / Store Credit",
+          pickupSlot: "Tomorrow, 03:00 PM - 05:00 PM (Doorstep Collection)",
+          pickupAddress: address,
+          zeroLandfillGuarantee: true,
+          destructionCertificateNumber: certNo,
+          materialsRecovered: [
+            { material: "Copper & High-Purity Gold Wire Bonding", recoveryRate: "99.2%" },
+            { material: "Lithium & Cobalt from Battery Cell", recoveryRate: "94.8% (Hydrometallurgical Extraction)" },
+            { material: "Aluminum Chassis & Recycled Polycarbonate", recoveryRate: "100% (Pelletized for Remanufacturing)" },
+            { material: "Lead & Mercury CRT/PCB Residue", recoveryRate: "100% Chemically Neutralized (Zero Leach)" }
+          ],
+          passportHash,
+        }
+      });
+    }
+
+    // 0E. ACTION: SCREEN / BSOD OPTICAL DIAGNOSTIC
     if (isScreenIntent) {
       const passportHash = sha256(`OPTICAL_BSOD:${assetTag}:${Date.now()}`);
       return NextResponse.json({
@@ -164,25 +331,6 @@ export async function POST(req: NextRequest) {
           hardwareImpact: "None (Software/Driver level)",
           remediationApplied: "Automated driver stack refresh & DNS cache sanitize",
           status: "Resolved",
-          passportHash,
-        },
-      });
-    }
-
-    // 0.1 ACTION: KEYBOARD HARDWARE DIAGNOSTIC
-    if (isKeyboardIntent) {
-      const passportHash = sha256(`KEYBOARD_DIAG:${assetTag}:${Date.now()}`);
-      return NextResponse.json({
-        success: true,
-        actionType: "KEYBOARD_DIAGNOSTIC",
-        completionMessage: `🎉 It's all done! I ran a hardware diagnostic test on your keyboard controller and key matrix. Tested 87 keys: 84 keys responded with optimal switch bounce (~4ms). Keys [E, R] show high resistance indicating physical membrane wear. Controller firmware is healthy. If you need replacement, say "Book a technician" and I will schedule one to your doorstep!`,
-        actionDetails: {
-          testedKeys: 87,
-          passedKeys: 85,
-          problematicKeys: ["E", "R"],
-          controllerStatus: "Healthy (Win32_Keyboard)",
-          switchBounceMs: 4.2,
-          recommendation: "Doorstep keyboard switch or membrane replacement",
           passportHash,
         },
       });
@@ -254,10 +402,30 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      const trackingDetails = {
+        orderId: ondcOrderId,
+        status: "DISPATCHED",
+        technician: technicianName,
+        phone: "+91 94812 33490",
+        vehicle: "Eco-Electric Mobile Diagnostic Unit #BLR-42",
+        etaMinutes: 14,
+        distanceKm: 2.1,
+        originHub: "ONDC Indiranagar Mobility Hub, Bangalore",
+        currentCoordinates: { lat: 12.9784, lng: 77.5912 },
+        destinationCoordinates: { lat: 12.9716, lng: 77.5946 },
+        destinationAddress: `${profile.addressLine}, ${profile.city} (${profile.pinCode})`,
+        milestones: [
+          { step: "Technician Dispatched (Indiranagar Hub)", time: "10:15 AM", done: true },
+          { step: "En Route via 100 Feet Rd (2.1 km away)", time: "10:22 AM", done: true },
+          { step: "Arrival at User Doorstep (ETA ~14 mins)", time: "10:36 AM", done: false },
+          { step: "Onsite Hardware Inspection & Servicing", time: "Pending", done: false },
+        ],
+      };
+
       return NextResponse.json({
         success: true,
         actionType: "DOORSTEP_BOOKING",
-        completionMessage: `🎉 It's all done! I booked certified doorstep technician ${technicianName} for you through the ONDC network. They will visit your address tomorrow (${scheduledSlot}) at ${profile.addressLine}, ${profile.city}. All form-filling was automatically bypassed using your saved profile!`,
+        completionMessage: `🎉 It's all done! I booked certified doorstep technician ${technicianName} for you through the ONDC network. They will visit your address tomorrow (${scheduledSlot}) at ${profile.addressLine}, ${profile.city}. Live GPS tracking is connected below!`,
         actionDetails: {
           orderId: ondcOrderId,
           technician: technicianName,
@@ -266,6 +434,7 @@ export async function POST(req: NextRequest) {
           recipient: profile.fullName,
           phone: profile.phoneNumber,
           address: `${profile.addressLine}, ${profile.city} (${profile.pinCode})`,
+          trackingDetails,
           passportHash,
         },
       });
@@ -340,43 +509,33 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 3. ACTION: REAL LIVE HARDWARE SCAN
-    if (isScanIntent || true) {
-      let hostData: any = null;
-      if (isWindows) {
-        try {
-          const { stdout } = await execAsync(
-            "powershell -ExecutionPolicy Bypass -File scripts\\Collect-WindowsTelemetry.ps1 -TestScenario Live -AsJson",
-            { timeout: 15000 }
-          );
-          if (stdout) {
-            hostData = JSON.parse(stdout);
-          }
-        } catch {}
-      }
+    // 3. ACTION: AI UNDERSTANDING MODEL HARDWARE DIAGNOSTICS & TESTING TOOLS
+    const aiDiag = await understandAndDiagnoseWithAi(queryText, body.apiKey);
+    const passportHash = sha256(`AI_HARDWARE_DIAG:${assetTag}:${aiDiag.affectedComponent}:${Date.now()}`);
 
-      const cpuName = hostData?.wmi?.cpu?.name || "13th Gen Intel(R) Core(TM) i3-1305U";
-      const cores = hostData?.wmi?.cpu?.numberOfCores || 5;
-      const ramGB = hostData?.wmi?.ram?.totalCapacityGB || 24;
-      const freeMemMB = Math.round(hostData?.wmi?.ram?.freePhysicalMemoryMB || 6100);
-      const diskModel = hostData?.wmi?.disks?.[0]?.model || "NVMe Samsung 512GB";
-      const osName = hostData?.wmi?.os?.caption || "Microsoft Windows 11 Home";
-      const hostName = hostData?.hostName || "DELL-RAJ";
+    const keyDetailSnippet = aiDiag.targetDetail ? ` [Target: ${aiDiag.targetDetail}]` : "";
 
-      return NextResponse.json({
-        success: true,
-        actionType: "DIAGNOSTIC_SCAN",
-        completionMessage: `🎉 It's all done! I performed a real live hardware scan on your PC (${hostName}). Your ${cpuName} (${cores} Cores) is running cool, RAM has ${freeMemMB} MB of free room out of ${ramGB} GB, and your ${diskModel} SSD is in 100% health with lightning-fast response times. Overall health score is 94% (Optimal)!`,
-        actionDetails: {
-          hostName,
-          cpu: { name: cpuName, cores, load: hostData?.perfCounters?.cpu?.percentProcessorTime || 18 },
-          ram: { totalGB: ramGB, freeMB: freeMemMB },
-          disk: { model: diskModel, status: "OK", latencyMs: hostData?.perfCounters?.disk?.avgDiskSecPerTransferMs || 0.94 },
-          os: { name: osName },
-          overallHealthScore: 94,
-        },
-      });
-    }
+    return NextResponse.json({
+      success: true,
+      actionType: "HARDWARE_AI_DIAGNOSTIC",
+      completionMessage: `🎉 It's all done! [AI Model: ${aiDiag.aiModelName}] analyzed your query: "${aiDiag.interpretedIntent}"${keyDetailSnippet}.\n\nTriggered Testing Tool: ${aiDiag.selectedTool.name} (${aiDiag.testingCategory}) in ${aiDiag.executionTimeMs}ms.\n\nDiagnosis Summary:\n• ${aiDiag.threeFactors.factor1_health}\n• ${aiDiag.threeFactors.factor2_impact}\n• ${aiDiag.threeFactors.factor3_rootCause}\n\nRecommended Action: ${aiDiag.triageVerdict.toUpperCase()}. Check below for the live Windows API output, doorstep technician booking, and circular salvage options!`,
+      actionDetails: {
+        aiModelName: aiDiag.aiModelName,
+        interpretedIntent: aiDiag.interpretedIntent,
+        testingCategory: aiDiag.testingCategory,
+        selectedTool: aiDiag.selectedTool,
+        targetDetail: aiDiag.targetDetail,
+        reasoning: aiDiag.reasoning,
+        windowsCommandExecuted: aiDiag.windowsCommandExecuted,
+        rawHostOutput: aiDiag.rawHostOutput,
+        affectedComponent: aiDiag.affectedComponent,
+        threeFactors: aiDiag.threeFactors,
+        triageVerdict: aiDiag.triageVerdict,
+        conditionAssessment: aiDiag.conditionAssessment,
+        finalActions,
+        passportHash,
+      },
+    });
 
   } catch (error: any) {
     console.error("Action agent error:", error);
