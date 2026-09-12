@@ -2,89 +2,191 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
+  Laptop, 
+  Truck, 
   Layers, 
-  Cpu, 
-  UploadCloud, 
   Sliders, 
-  CheckCircle2, 
-  ShieldCheck, 
-  BarChart3,
-  UserCheck,
-  Radio,
+  Cpu, 
+  UserCheck, 
+  ChevronDown,
+  Sparkles,
+  ShieldCheck,
+  CheckCircle2,
+  UploadCloud,
+  MessageSquare,
   HelpCircle,
-  Laptop
+  BarChart3
 } from "lucide-react";
 
 export default function Navbar() {
   const pathname = usePathname();
-  const [role, setRole] = useState("Asset Manager");
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem("reusechain_role");
-    if (saved) setRole(saved);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setToolsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleRoleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const newRole = e.target.value;
-    setRole(newRole);
-    localStorage.setItem("reusechain_role", newRole);
-    window.dispatchEvent(new Event("roleChanged"));
-  };
+  const [manualMode, setManualMode] = useState(false);
 
-  const navItems = [
-    { label: "Fleet Overview", href: "/", icon: Layers },
-    { label: "Diagnostic Assistant", href: "/assistant", icon: Radio },
-    { label: "Desktop AI Agent", href: "/desktop-agent", icon: Laptop },
+  useEffect(() => {
+    const isManualPath = 
+      pathname === "/manual" || 
+      pathname === "/intake" || 
+      pathname === "/desktop-agent" ||
+      pathname === "/fleet" ||
+      pathname === "/simulator" ||
+      pathname === "/approvals" ||
+      pathname === "/passport" ||
+      pathname === "/settings" ||
+      pathname === "/escalations";
+
+    const stored = typeof window !== "undefined" ? localStorage.getItem("reusechain_manual_mode") : null;
+    if (isManualPath) {
+      setManualMode(true);
+    } else if (pathname === "/assistant") {
+      setManualMode(false);
+    } else if (pathname === "/") {
+      setManualMode(stored === "true");
+    }
+
+    const handleModeChange = (e: any) => {
+      if (e.detail?.mode === "manual") {
+        setManualMode(true);
+        localStorage.setItem("reusechain_manual_mode", "true");
+      } else if (e.detail?.mode === "chat") {
+        setManualMode(false);
+        localStorage.setItem("reusechain_manual_mode", "false");
+      }
+    };
+
+    window.addEventListener("entryModeChanged", handleModeChange);
+    return () => window.removeEventListener("entryModeChanged", handleModeChange);
+  }, [pathname]);
+
+  const primaryNavItems = [
+    { label: "Manual Data Entry", href: "/manual", icon: Laptop, highlight: true },
+    { label: "PC Doctor", href: "/desktop-agent", icon: Cpu },
+    { label: "Fleet & Passports", href: "/fleet", icon: Layers },
+    { label: "Settings", href: "/settings", icon: Sliders },
+  ];
+
+  const secondaryTools = [
     { label: "Admin Escalations", href: "/escalations", icon: HelpCircle },
     { label: "Device Intake", href: "/intake", icon: UploadCloud },
-    { label: "4-Way Simulator", href: "/simulator", icon: Sliders },
+    { label: "Lifecycle Simulator", href: "/simulator", icon: Sliders },
     { label: "Approval Queue", href: "/approvals", icon: CheckCircle2 },
     { label: "Circularity Passport", href: "/passport", icon: ShieldCheck },
     { label: "Learning & ROI", href: "/learning", icon: BarChart3 },
-    { label: "Policy Guardrails", href: "/settings", icon: Sliders },
   ];
+
+  const isToolActive = secondaryTools.some((t) => pathname === t.href || pathname.startsWith(t.href));
 
   return (
     <header className="navbar">
-      <Link href="/" className="nav-brand">
+      <Link href="/assistant" className="nav-brand">
         <Cpu size={26} color="#38bdf8" />
-        <span>ReUseChain</span>
+        <span className="font-black tracking-tight text-white flex items-center gap-1.5">
+          ReUseChain <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-normal">PC Care</span>
+        </span>
       </Link>
 
-      <nav className="nav-links">
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const isActive = pathname === item.href || (item.href !== "/" && pathname.startsWith(item.href));
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`nav-link ${isActive ? "active" : ""}`}
-            >
-              <Icon size={16} />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      {/* Navigation panel: ONLY visible when manual data entry is active */}
+      {manualMode ? (
+        <nav className="nav-links flex items-center gap-1 animate-in fade-in duration-200">
+          {primaryNavItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`nav-link ${isActive ? "active" : ""}`}
+              >
+                <Icon size={15} />
+                <span>{item.label}</span>
+              </Link>
+            );
+          })}
 
-      <div className="role-badge-container">
-        <UserCheck size={14} color="#06b6d4" />
-        <span style={{ color: "var(--text-muted)", fontSize: "0.75rem" }}>Role:</span>
-        <select
-          className="role-select"
-          value={role}
-          onChange={handleRoleChange}
-          aria-label="Select Demo Role"
-        >
-          <option value="Asset Manager">Asset Manager (Approver)</option>
-          <option value="Hardware Technician">Hardware Technician</option>
-          <option value="Sustainability Lead">Sustainability Lead</option>
-          <option value="Compliance Auditor">Compliance Auditor</option>
-        </select>
-      </div>
+          {/* Tools Dropdown */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setToolsOpen(!toolsOpen)}
+              className={`nav-link flex items-center gap-1 cursor-pointer ${isToolActive ? "active" : ""}`}
+              aria-expanded={toolsOpen}
+            >
+              <span>More Tools</span>
+              <ChevronDown size={13} className={`transition-transform duration-200 ${toolsOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {toolsOpen && (
+              <div className="absolute left-0 mt-2 w-56 rounded-xl bg-slate-900 border border-white/10 shadow-2xl py-1.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
+                <div className="px-3 py-1 text-[10px] font-mono uppercase tracking-wider text-slate-500">
+                  Enterprise Utilities
+                </div>
+                {secondaryTools.map((tool) => {
+                  const Icon = tool.icon;
+                  const isActive = pathname === tool.href;
+                  return (
+                    <Link
+                      key={tool.href}
+                      href={tool.href}
+                      onClick={() => setToolsOpen(false)}
+                      className={`flex items-center gap-2.5 px-3.5 py-2 text-xs transition-colors ${
+                        isActive 
+                          ? "bg-cyan-500/10 text-cyan-300 font-semibold" 
+                          : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                      }`}
+                    >
+                      <Icon size={14} className={isActive ? "text-cyan-400" : "text-slate-400"} />
+                      <span>{tool.label}</span>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Quick toggle to return to Chat Agent */}
+          <Link
+            href="/assistant"
+            onClick={() => {
+              localStorage.setItem("reusechain_manual_mode", "false");
+              setManualMode(false);
+              window.dispatchEvent(new CustomEvent("entryModeChanged", { detail: { mode: "chat" } }));
+            }}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition-all ml-1"
+          >
+            <MessageSquare size={13} />
+            <span>Chat Agent</span>
+          </Link>
+        </nav>
+      ) : (
+        /* When NOT in manual data entry: Navigation panel is hidden, replaced with clean single button */
+        <div className="flex items-center gap-2 animate-in fade-in duration-200">
+          <Link
+            href="/manual"
+            onClick={() => {
+              localStorage.setItem("reusechain_manual_mode", "true");
+              setManualMode(true);
+              window.dispatchEvent(new CustomEvent("entryModeChanged", { detail: { mode: "manual" } }));
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-slate-900 border border-slate-800 hover:border-cyan-500/40 transition-all shadow-sm"
+          >
+            <Laptop size={14} className="text-cyan-400" />
+            <span>Manual Data Entry</span>
+          </Link>
+        </div>
+      )}
     </header>
   );
 }

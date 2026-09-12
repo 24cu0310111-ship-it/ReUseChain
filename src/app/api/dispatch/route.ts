@@ -38,17 +38,19 @@ export async function POST(req: NextRequest) {
       });
 
       const eventHash = sha256(`TECH_DISPATCH:${booking.id}:${Date.now()}`);
-      await prisma.passportEvent.create({
-        data: {
-          deviceId: dev?.id,
-          eventCategory: "custody",
-          eventType: "TECHNICIAN_DISPATCHED",
-          actor: "Autonomous Execution Agent",
-          description: `Work order dispatched: ${booking.serviceType} assigned to ${booking.technicianName}. Estimated: $${booking.estimatedCost.toFixed(2)}.`,
-          eventHash,
-          prevHash,
-        },
-      });
+      if (targetId) {
+        await prisma.passportEvent.create({
+          data: {
+            deviceId: targetId,
+            eventCategory: "custody",
+            eventType: "TECHNICIAN_DISPATCHED",
+            actor: "Autonomous Execution Agent",
+            description: `Work order dispatched: ${booking.serviceType} assigned to ${booking.technicianName}. Estimated: $${booking.estimatedCost.toFixed(2)}.`,
+            eventHash,
+            prevHash,
+          },
+        });
+      }
 
       return NextResponse.json({
         success: true,
@@ -66,17 +68,19 @@ export async function POST(req: NextRequest) {
       }
 
       const eventHash = sha256(`HARVEST_SPARES:${targetId}:${Date.now()}`);
-      await prisma.passportEvent.create({
-        data: {
-          deviceId: dev?.id,
-          eventCategory: "custody",
-          eventType: "SUB_ASSEMBLIES_HARVESTED",
-          actor: "Autonomous Execution Agent",
-          description: `Harvested healthy secondary modules (NVMe SSD, RAM) into campus IT spares pool for active fleet maintenance.`,
-          eventHash,
-          prevHash,
-        },
-      });
+      if (targetId) {
+        await prisma.passportEvent.create({
+          data: {
+            deviceId: targetId,
+            eventCategory: "custody",
+            eventType: "SUB_ASSEMBLIES_HARVESTED",
+            actor: "Autonomous Execution Agent",
+            description: `Harvested healthy secondary modules (NVMe SSD, RAM) into campus IT spares pool for active fleet maintenance.`,
+            eventHash,
+            prevHash,
+          },
+        });
+      }
 
       return NextResponse.json({
         success: true,
@@ -98,17 +102,19 @@ export async function POST(req: NextRequest) {
       });
 
       const eventHash = sha256(`RECYCLER_SCHEDULED:${scrap.id}:${Date.now()}`);
-      await prisma.passportEvent.create({
-        data: {
-          deviceId: dev?.id,
-          eventCategory: "custody",
-          eventType: "CERTIFIED_RECYCLING_SCHEDULED",
-          actor: "Autonomous Execution Agent",
-          description: `Scheduled certified R2v3 recycler pickup. Material valuation: $${scrap.estimatedValueUSD.toFixed(2)} (Cu & Precious Metals).`,
-          eventHash,
-          prevHash,
-        },
-      });
+      if (targetId) {
+        await prisma.passportEvent.create({
+          data: {
+            deviceId: targetId,
+            eventCategory: "custody",
+            eventType: "CERTIFIED_RECYCLING_SCHEDULED",
+            actor: "Autonomous Execution Agent",
+            description: `Scheduled certified R2v3 recycler pickup. Material valuation: $${scrap.estimatedValueUSD.toFixed(2)} (Cu & Precious Metals).`,
+            eventHash,
+            prevHash,
+          },
+        });
+      }
 
       return NextResponse.json({
         success: true,

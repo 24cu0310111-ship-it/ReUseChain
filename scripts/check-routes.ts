@@ -18,6 +18,8 @@ async function checkRoutes() {
     "/api/ondc/profile",
     "/api/ondc/services",
     "/api/media",
+    "/api/diagnostics/windows-telemetry",
+    "/api/diagnostics/remediate",
   ];
   const results = [];
   for (const r of routes) {

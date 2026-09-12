@@ -214,7 +214,7 @@ export default function SettingsPage() {
                 value={settings.recycleMode}
                 onChange={(e) => setSettings({ ...settings, recycleMode: e.target.value })}
               >
-                <option value="draft_and_assist">Draft & Assist (Sustainability Lead Sign-off)</option>
+                <option value="draft_and_assist">Draft & Assist (Asset Manager Sign-off)</option>
                 <option value="auto_within_policy">Auto within Policy (Certified Partners Only)</option>
               </select>
             </div>

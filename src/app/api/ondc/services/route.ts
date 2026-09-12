@@ -58,20 +58,31 @@ function parseSingleTurnPrompt(prompt: string): {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    let body: any = {};
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
+    }
+
     const { 
       prompt, 
       assetTag = "ASSET-0142", 
       serviceTypeOverride, 
-      timeSlotOverride 
+      serviceType,
+      service,
+      issue,
+      problem,
+      symptom,
+      affectedPart,
+      description,
+      timeSlotOverride,
+      timeSlot: explicitTimeSlot,
+      slot
     } = body;
 
-    if (!prompt && !serviceTypeOverride) {
-      return NextResponse.json(
-        { success: false, error: "prompt or serviceTypeOverride is required" },
-        { status: 400 }
-      );
-    }
+    const rawServicePrompt = prompt || serviceTypeOverride || serviceType || service || issue || problem || symptom || affectedPart || description || "Hardware Preventative Servicing & Diagnostics";
+    const requestedSlot = timeSlotOverride || explicitTimeSlot || slot;
 
     // 1. User Authentication & Automation:
     // Automatically retrieve stored user profile to bypass form-filling!
@@ -97,17 +108,35 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Single-Turn Prompt Parsing
-    const parsed = parseSingleTurnPrompt(prompt || serviceTypeOverride);
-    const serviceDescription = serviceTypeOverride || parsed.detectedIssue;
-    const timeSlot = timeSlotOverride || parsed.timeSlot;
+    const parsed = parseSingleTurnPrompt(rawServicePrompt);
+    const serviceDescription = serviceTypeOverride || serviceType || affectedPart || parsed.detectedIssue;
+    const timeSlot = requestedSlot || parsed.timeSlot;
     const totalAmount = parsed.estimatedCost;
 
-    // 3. Resolve Target Device
-    const dev = await prisma.device.findFirst({
+    // 3. Resolve Target Device (Ensure real DB device exists for foreign key constraints)
+    let dev = await prisma.device.findFirst({
       where: { OR: [{ assetTag }, { id: assetTag }] },
     });
-    const deviceId = dev?.id || (await prisma.device.findFirst())?.id || "GENERIC_DEVICE";
-    const targetTag = dev?.assetTag || assetTag;
+    if (!dev) {
+      dev = await prisma.device.findFirst();
+    }
+    if (!dev) {
+      dev = await prisma.device.create({
+        data: {
+          id: "DEV-DEFAULT-01",
+          assetTag: assetTag || "ASSET-0142",
+          serialHash: "SERIAL_HASH_DEFAULT",
+          organisation: "TechCorp Global",
+          make: "Dell",
+          model: "Latitude 5430",
+          ageMonths: 14,
+          lifecycleStatus: "monitored",
+          currentRole: "standard_workstation",
+        }
+      });
+    }
+    const deviceId = dev.id;
+    const targetTag = dev.assetTag || assetTag || "ASSET-0142";
 
     // 4. ONDC Services Protocol Lifecycle Simulation:
     // search -> select -> init -> confirm
@@ -117,7 +146,7 @@ export async function POST(req: NextRequest) {
     const providerId = "BPP-UC-BLR-9921";
     const bapId = "reusechain.ondc.bap.org";
     const bppId = "services.ondc.bpp.urbancare.net";
-    const trackingUrl = `https://track.ondc.services/order/${ondcOrderId}?gps=${encodeURIComponent(profile.gpsCoordinates)}`;
+    const trackingUrl = `/track/${ondcOrderId}`;
 
     // 5. Commit to SQLite via Prisma (OndcBooking & TechnicianBooking)
     const ondcBooking = await prisma.ondcBooking.create({
