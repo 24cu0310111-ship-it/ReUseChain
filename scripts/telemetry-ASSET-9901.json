@@ -1,0 +1,47 @@
+﻿{
+    "currentRole":  "Assigned Employee Laptop",
+    "telemetryJson":  {
+                          "collectedAt":  "2026-09-12T17:41:37Z",
+                          "components":  [
+                                             {
+                                                 "model":  "DELL PG8YJ46",
+                                                 "healthPercent":  71.3,
+                                                 "fullChargeCapacityWh":  38.5,
+                                                 "type":  "battery",
+                                                 "source":  "Windows.Power.BatteryReport",
+                                                 "cycleCount":  412,
+                                                 "chemistry":  2,
+                                                 "designCapacityWh":  54
+                                             },
+                                             {
+                                                 "capacityGb":  477,
+                                                 "sanitizationStatus":  "PENDING",
+                                                 "healthPercent":  92,
+                                                 "source":  "Storage.SMART.Report",
+                                                 "type":  "ssd",
+                                                 "model":  "NVMe BM9C1 Samsung 512GB",
+                                                 "smartWearPercent":  8
+                                             },
+                                             {
+                                                 "capacityGb":  24,
+                                                 "source":  "Motherboard.SMBIOS",
+                                                 "healthPercent":  100,
+                                                 "errors":  0,
+                                                 "type":  "ram",
+                                                 "model":  "24GB DDR4 Memory Array"
+                                             },
+                                             {
+                                                 "source":  "Display.EDID",
+                                                 "model":  "14.0 Anti-Glare Display Panel",
+                                                 "type":  "display",
+                                                 "healthPercent":  95
+                                             }
+                                         ],
+                          "collectorVersion":  "2.1.0-mvp"
+                      },
+    "assetTag":  "ASSET-9901",
+    "make":  "Dell Inc.",
+    "model":  "Inspiron 15 3530",
+    "organisation":  "Enterprise Fleet",
+    "ageMonths":  22
+}

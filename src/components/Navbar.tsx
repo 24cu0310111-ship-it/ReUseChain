@@ -11,7 +11,10 @@ import {
   CheckCircle2, 
   ShieldCheck, 
   BarChart3,
-  UserCheck
+  UserCheck,
+  Radio,
+  HelpCircle,
+  Laptop
 } from "lucide-react";
 
 export default function Navbar() {
@@ -32,6 +35,9 @@ export default function Navbar() {
 
   const navItems = [
     { label: "Fleet Overview", href: "/", icon: Layers },
+    { label: "Diagnostic Assistant", href: "/assistant", icon: Radio },
+    { label: "Desktop AI Agent", href: "/desktop-agent", icon: Laptop },
+    { label: "Admin Escalations", href: "/escalations", icon: HelpCircle },
     { label: "Device Intake", href: "/intake", icon: UploadCloud },
     { label: "4-Way Simulator", href: "/simulator", icon: Sliders },
     { label: "Approval Queue", href: "/approvals", icon: CheckCircle2 },

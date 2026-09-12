@@ -103,6 +103,34 @@ export default function DeviceIntakePage() {
         </p>
       </div>
 
+      <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-cyan-950/40 via-slate-900 to-slate-900 border border-cyan-500/30">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="text-xs uppercase font-bold text-cyan-400 tracking-wider flex items-center gap-1.5">
+              <UploadCloud size={14} /> Automated Endpoint Ingestion
+            </div>
+            <h3 className="text-sm font-semibold text-white mt-0.5">
+              Run Hardware Collector directly on Windows endpoints
+            </h3>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Execute our lightweight, privacy-safe collector script to discover battery health, NVMe wear, and memory configuration.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleLoadSample}
+            className="btn btn-secondary btn-sm self-start sm:self-auto text-xs whitespace-nowrap"
+          >
+            Load Sample Telemetry
+          </button>
+        </div>
+
+        <div className="mt-3 p-2.5 rounded-lg bg-black/60 border border-white/10 flex items-center justify-between font-mono text-xs text-slate-300">
+          <code className="text-cyan-300 select-all">powershell -ExecutionPolicy Bypass -File scripts\Collect-DeviceTelemetry.ps1 -PostDirectly</code>
+          <span className="text-[10px] text-slate-500 hidden md:inline">Runs locally with zero privacy intrusion</span>
+        </div>
+      </div>
+
       <form onSubmit={handleSubmit} className="card">
         <h2 style={{ fontSize: "1.15rem", fontWeight: "700", marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <Laptop size={20} color="#38bdf8" /> Asset Hardware Identification
@@ -178,7 +206,7 @@ export default function DeviceIntakePage() {
         <div style={{ marginTop: "1.5rem", borderTop: "1px solid var(--border-subtle)", paddingTop: "1.5rem" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
             <label className="form-label" style={{ marginBottom: 0 }}>
-              Diagnostic Telemetry Report (JSON / Collector Output)
+              Diagnostic Hardware Telemetry Report
             </label>
             <button 
               type="button" 
@@ -193,7 +221,7 @@ export default function DeviceIntakePage() {
           <textarea
             className="form-textarea"
             rows={8}
-            placeholder="Paste normalized diagnostic JSON payload or click 'Load Sample Telemetry'..."
+            placeholder="Paste hardware health telemetry report or click 'Load Sample Telemetry'..."
             value={telemetryJson}
             onChange={(e) => setTelemetryJson(e.target.value)}
             style={{ width: "100%", fontFamily: "var(--font-mono)", fontSize: "0.8rem" }}

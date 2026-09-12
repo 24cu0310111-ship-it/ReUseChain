@@ -172,3 +172,116 @@ model AutonomySetting {
   updatedAt             DateTime @updatedAt
 }
 
+model AdminEscalation {
+  id               String   @id @default(uuid())
+  deviceId         String?
+  assetTag         String?
+  queryText        String
+  symptomSummary   String
+  telemetrySnippet String?
+  status           String   @default("pending") // pending, resolved, dismissed
+  urgency          String   @default("medium")  // low, medium, critical
+  adminResponse    String?
+  learnedRule      String?
+  resolvedBy       String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model TechnicianBooking {
+  id              String   @id @default(uuid())
+  deviceId        String
+  assetTag        String
+  serviceType     String   // Battery Replacement, Thermal Servicing, Logic Board Rework
+  technicianName  String
+  vendorName      String
+  estimatedCost   Float
+  scheduledDate   DateTime
+  serviceStatus   String   @default("dispatched") // dispatched, in_progress, completed
+  workOrderNotes  String?
+  createdAt       DateTime @default(now())
+}
+
+model ScrapValuation {
+  id                String   @id @default(uuid())
+  deviceId          String
+  assetTag          String
+  estimatedValueUSD Float
+  preciousMetalsG   Float?
+  copperG           Float?
+  recyclerPartner   String
+  pickupStatus      String   @default("scheduled") // scheduled, in_transit, verified_recycled
+  createdAt         DateTime @default(now())
+}
+
+model UserProfile {
+  id             String   @id @default("user_default")
+  fullName       String   @default("Sarah Chen")
+  email          String   @default("sarah.chen@techcorp.io")
+  phoneNumber    String   @default("+91 98765 43210")
+  role           String   @default("Lead Asset Manager")
+  addressLine    String   @default("Block C, Tech Park Boulevard")
+  city           String   @default("Bangalore")
+  state          String   @default("Karnataka")
+  pinCode        String   @default("560103")
+  gpsCoordinates String   @default("12.9716, 77.5946")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model OndcBooking {
+  id                 String   @id @default(uuid())
+  ondcOrderId        String   @unique
+  deviceId           String
+  assetTag           String
+  serviceCategory    String   // PC_HARDWARE_DOORSTEP_REPAIR
+  serviceDescription String
+  timeSlot           String   // e.g. "Tomorrow 10:00 AM - 12:00 PM"
+  providerName       String   // e.g. "QuickFix Tech Hub via ONDC BPP"
+  providerId         String
+  bapId              String   // e.g. "reusechain.ondc.bap.org"
+  bppId              String   // e.g. "services.ondc.bpp.provider.net"
+  customerName       String
+  customerPhone      String
+  doorstepAddress    String
+  pinCode            String
+  gpsCoordinates     String
+  totalAmountUSD     Float
+  orderStatus        String   @default("CONFIRMED") // SEARCH, SELECT, INIT, CONFIRMED, COMPLETED
+  trackingUrl        String?
+  passportHash       String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+model MediaAsset {
+  id               String                @id @default(uuid())
+  deviceId         String?
+  assetTag         String?
+  mediaType        String                // photo, screenshot, diagnostic_dump, thermal_scan
+  fileName         String
+  mimeType         String                // image/png, image/jpeg, application/json, text/plain
+  fileSizeBytes    Int
+  storageUrl       String                // Base64 Data URL or persistent local URI
+  checksumSha256   String
+  ocrExtractedText String?               // Optical characters extracted from screen photo
+  metadataJson     String?               // Resolution, camera/sensor details, dimensions
+  createdAt        DateTime              @default(now())
+  embeddings       DiagnosticEmbedding[]
+}
+
+model DiagnosticEmbedding {
+  id              String      @id @default(uuid())
+  mediaAssetId    String?
+  mediaAsset      MediaAsset? @relation(fields: [mediaAssetId], references: [id], onDelete: Cascade)
+  deviceId        String?
+  assetTag        String?
+  sourceType      String      // screen_photo, symptom_query, diagnostic_telemetry, root_cause
+  modelName       String      @default("text-embedding-3-small")
+  vectorDimension Int         @default(1536)
+  vectorJson      String      // Serialized float array of embeddings
+  rawContent      String      // Text or signature from which embedding was generated
+  createdAt       DateTime    @default(now())
+}
+
+

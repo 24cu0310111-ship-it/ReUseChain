@@ -27,6 +27,8 @@ export default function FleetDashboard() {
   const [evaluatingId, setEvaluatingId] = useState<string | null>(null);
   const [simulating, setSimulating] = useState(false);
   const [simulationToast, setSimulationToast] = useState<string | null>(null);
+  const [batchEvaluating, setBatchEvaluating] = useState(false);
+  const [batchSummary, setBatchSummary] = useState<any>(null);
 
   const fetchFleet = async () => {
     try {
@@ -88,6 +90,36 @@ export default function FleetDashboard() {
     }
   };
 
+  const handleBatchTriage = async () => {
+    try {
+      setBatchEvaluating(true);
+      setBatchSummary(null);
+      const results: any[] = [];
+      for (const dev of devices) {
+        const res = await fetch("/api/evaluate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deviceId: dev.id }),
+        });
+        const json = await res.json();
+        if (json.success) results.push(json.dossier);
+      }
+      setBatchSummary({
+        total: results.length,
+        repair: results.filter((r) => r.recommendedPath === "repair").length,
+        reuse: results.filter((r) => r.recommendedPath && r.recommendedPath.includes("reuse")).length,
+        recycle: results.filter((r) => r.recommendedPath === "recycle").length,
+        redBlocked: results.filter((r) => r.riskTier === "red").length,
+        amberReview: results.filter((r) => r.riskTier === "amber").length,
+      });
+      await fetchFleet();
+    } catch (e: any) {
+      console.error("Batch evaluation error:", e);
+    } finally {
+      setBatchEvaluating(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       {/* Top Banner & Quick Controls */}
@@ -97,11 +129,19 @@ export default function FleetDashboard() {
             Fleet Circularity Governance
           </h1>
           <p className="text-slate-400 text-sm mt-1 max-w-2xl">
-            Continuous hardware health monitoring and governed decision loop powered by an <strong>Autonomous Lifecycle Decision Engine</strong>. Prioritizing precision repair, internal redeployment, and certified recycling strictly as a verified last resort.
+            Continuous hardware health monitoring and automated circularity governance for enterprise fleets. Prioritizing precision repair, internal redeployment, and certified recycling strictly as a verified last resort.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          <Button 
+            onClick={handleBatchTriage} 
+            disabled={batchEvaluating || loading}
+            variant="default"
+            className="bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-950/50"
+          >
+            <Sparkles size={15} /> {batchEvaluating ? "Evaluating Fleet..." : "Batch Triage Fleet"}
+          </Button>
           <Button 
             onClick={handleSimulateDay} 
             disabled={simulating}
@@ -118,6 +158,38 @@ export default function FleetDashboard() {
           </Link>
         </div>
       </div>
+
+      {batchSummary && (
+        <div className="p-4 rounded-xl bg-purple-950/40 border border-purple-500/30 text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div className="text-xs uppercase font-bold text-purple-300 tracking-wider flex items-center gap-1.5">
+              <CheckCircle2 size={15} className="text-emerald-400" /> Batch Triage Complete ({batchSummary.total} Endpoints Evaluated)
+            </div>
+            <div className="flex flex-wrap items-center gap-3 mt-2 text-xs">
+              <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2.5 py-1 rounded">
+                Precision Repair: <strong>{batchSummary.repair}</strong>
+              </span>
+              <span className="bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2.5 py-1 rounded">
+                Internal Reuse / Spares: <strong>{batchSummary.reuse}</strong>
+              </span>
+              <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-2.5 py-1 rounded">
+                Human Review (Amber): <strong>{batchSummary.amberReview}</strong>
+              </span>
+              {batchSummary.redBlocked > 0 && (
+                <span className="bg-rose-500/20 text-rose-300 border border-rose-500/30 px-2.5 py-1 rounded">
+                  Held at Red Gate: <strong>{batchSummary.redBlocked}</strong>
+                </span>
+              )}
+            </div>
+          </div>
+          <button 
+            onClick={() => setBatchSummary(null)} 
+            className="text-xs text-slate-400 hover:text-white px-2 py-1 rounded bg-white/5 self-start md:self-auto"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {simulationToast && (
         <div className="p-3.5 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-300 text-sm flex items-center justify-between">

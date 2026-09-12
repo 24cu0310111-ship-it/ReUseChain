@@ -194,7 +194,12 @@ export default function DeviceDetailPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
+            <Link href={`/passport/${device.assetTag}/certificate`}>
+              <Button variant="outline" className="gap-1.5 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/10">
+                <FileCheck2 size={16} className="text-emerald-400" /> ESG Certificate
+              </Button>
+            </Link>
             <Link href={`/passport/${device.assetTag}`}>
               <Button variant="outline">
                 <ShieldCheck size={16} className="text-cyan-400" /> Circularity Passport
@@ -205,7 +210,7 @@ export default function DeviceDetailPage() {
               disabled={evaluating}
               className="bg-gradient-to-r from-cyan-600 to-sky-600 hover:from-cyan-500 hover:to-sky-500 shadow-lg shadow-cyan-950/50"
             >
-              <Sparkles size={16} /> {evaluating ? "Running Autonomous Triage..." : "Run Autonomous Triage"}
+              <Sparkles size={16} /> {evaluating ? "Running Lifecycle Triage..." : "Run Lifecycle Triage"}
             </Button>
           </div>
         </div>
@@ -218,7 +223,7 @@ export default function DeviceDetailPage() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Cpu size={18} className="text-cyan-400" /> Sub-Component Hardware Telemetry
+                <Cpu size={18} className="text-cyan-400" /> Sub-Component Hardware Telemetry & Salvage
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -230,7 +235,7 @@ export default function DeviceDetailPage() {
                 return (
                   <div 
                     key={c.id} 
-                    className="flex items-center justify-between p-3 rounded-lg border border-white/5 bg-slate-800/40 hover:bg-slate-800/70 transition-colors"
+                    className="flex flex-col sm:flex-row sm:items-center justify-between p-3 rounded-lg border border-white/5 bg-slate-800/40 hover:bg-slate-800/70 transition-colors gap-2"
                   >
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-lg bg-white/5">
@@ -238,8 +243,24 @@ export default function DeviceDetailPage() {
                       </div>
                       <div>
                         <div className="font-semibold text-sm capitalize text-slate-100">{c.type}: {c.model}</div>
-                        <div className="text-xs text-slate-400">
-                          {c.isReplaceable ? "Modular" : "Soldered"} • Pairing Restriction: {c.pairingRestriction ? "Yes" : "None"}
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          <span className="text-xs text-slate-400">
+                            {c.isReplaceable ? "Modular" : "Soldered"}
+                          </span>
+                          <span className="text-slate-600">•</span>
+                          <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded border ${
+                            c.healthPercent >= 80 
+                              ? "bg-emerald-500/10 text-emerald-300 border-emerald-500/20" 
+                              : c.healthPercent >= 40 
+                              ? "bg-amber-500/10 text-amber-300 border-amber-500/20" 
+                              : "bg-rose-500/10 text-rose-300 border-rose-500/20"
+                          }`}>
+                            {c.healthPercent >= 80 
+                              ? "Salvageable to Spares" 
+                              : c.healthPercent >= 40 
+                              ? "Repair Candidate" 
+                              : "Certified E-Waste"}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -313,7 +334,7 @@ export default function DeviceDetailPage() {
                   : "text-slate-400 hover:text-white"
               }`}
             >
-              <Network size={14} /> Autonomous Decision Pipeline
+              <Network size={14} /> Lifecycle Decision Pipeline
             </button>
           </div>
 
@@ -433,16 +454,16 @@ export default function DeviceDetailPage() {
                 </CardContent>
               </Card>
             ) : (
-              /* Autonomous Decision Pipeline View */
+              /* Lifecycle Decision Pipeline View */
               <Card className="border-t-4 border-t-purple-500">
                 <CardHeader>
                   <div className="flex items-center justify-between">
                     <div>
-                      <Badge variant="purple">Autonomous Decision Core</Badge>
-                      <CardTitle className="text-lg mt-1">Autonomous Lifecycle Orchestration Pipeline</CardTitle>
+                      <Badge variant="purple">Circularity Governance</Badge>
+                      <CardTitle className="text-lg mt-1">Lifecycle Evaluation & Verification Flow</CardTitle>
                     </div>
                     <span className="text-xs font-mono text-purple-300 bg-purple-950/50 px-2.5 py-1 rounded border border-purple-500/30">
-                      Deterministic Multi-Stage Governance
+                      Governed Multi-Stage Verification
                     </span>
                   </div>
                 </CardHeader>
@@ -459,7 +480,7 @@ export default function DeviceDetailPage() {
                             {i + 1}
                           </div>
                           <div>
-                            <div className="text-sm font-semibold text-slate-100">{node.label} <span className="text-xs text-purple-400 font-mono">({node.name})</span></div>
+                            <div className="text-sm font-semibold text-slate-100">{node.label}</div>
                             <div className="text-xs text-slate-400">{node.desc}</div>
                           </div>
                         </div>
@@ -468,16 +489,20 @@ export default function DeviceDetailPage() {
                     ))}
                   </div>
 
-                  {/* Execution Logs */}
-                  <div className="mt-4 p-3 rounded-lg bg-black/40 border border-white/10 font-mono text-xs text-slate-300 space-y-1">
-                    <div className="text-[11px] text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
-                      <Terminal size={12} /> Execution Log Trace
+                  {/* Verification Audit Trail */}
+                  <div className="mt-4 p-3.5 rounded-lg bg-black/40 border border-white/10 text-xs text-slate-300 space-y-2">
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-2 flex items-center gap-1.5 font-semibold">
+                      <CheckCircle2 size={13} className="text-cyan-400" /> Verification Audit Trail
                     </div>
-                    {dossier.actionsTaken?.map((action: string, idx: number) => (
-                      <div key={idx} className="text-slate-300">
-                        &gt; {action}
-                      </div>
-                    ))}
+                    {dossier.actionsTaken?.map((action: string, idx: number) => {
+                      const cleanAction = action.replace(/^\[.*?\]\s*/, "");
+                      return (
+                        <div key={idx} className="flex items-start gap-2 text-slate-300">
+                          <span className="text-emerald-400 font-bold">✓</span>
+                          <span>{cleanAction}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </CardContent>
               </Card>
@@ -487,10 +512,10 @@ export default function DeviceDetailPage() {
               <Sparkles size={40} className="text-sky-400 mx-auto mb-3" />
               <CardTitle className="text-base">No Evaluation Run Yet</CardTitle>
               <CardDescription className="max-w-sm mx-auto mt-1 mb-4">
-                Execute the autonomous lifecycle pipeline to coordinate hardware triage, parts availability, quotes, and policy gates automatically.
+                Execute the governed lifecycle pipeline to coordinate hardware triage, parts availability, quotes, and policy gates automatically.
               </CardDescription>
               <Button onClick={handleRunEvaluation} disabled={evaluating} variant="default">
-                {evaluating ? "Executing Autonomous Decision Pipeline..." : "Run Autonomous Evaluation"}
+                {evaluating ? "Evaluating Lifecycle Pipeline..." : "Run Lifecycle Evaluation"}
               </Button>
             </Card>
           )}
