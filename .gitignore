@@ -26,6 +26,23 @@
 *.sql
 *.sqlite
 
+# Node & Next.js #
+##################
+node_modules/
+.next/
+out/
+build/
+dist/
+
+# SQLite & Environment #
+########################
+*.db
+*.db-journal
+*.sqlite3
+.env
+.env.local
+.env*.local
+
 # OS generated files #
 ######################
 .DS_Store
@@ -35,3 +52,4 @@
 .Trashes
 ehthumbs.db
 Thumbs.db
+

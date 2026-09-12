@@ -1,0 +1,174 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Device {
+  id                String             @id @default(uuid())
+  assetTag          String             @unique
+  serialHash        String
+  organisation      String
+  make              String
+  model             String
+  ageMonths         Int
+  lifecycleStatus   String             @default("monitored") // monitored, flagged, under_repair, repurposed, recycled, quarantine
+  currentRole       String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  components        Component[]
+  diagnosticReports DiagnosticReport[]
+  decisionCases     DecisionCase[]
+  passportEvents    PassportEvent[]
+}
+
+model Component {
+  id                 String          @id @default(uuid())
+  deviceId           String
+  device             Device          @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  type               String          // battery, ssd, ram, display, motherboard, chassis
+  model              String
+  serialHash         String?
+  isReplaceable      Boolean         @default(true)
+  pairingRestriction Boolean         @default(false)
+  healthPercent      Float           // 0 - 100
+  currentStatus      String          @default("healthy") // healthy, declining, critical, failed, harvested
+  specsJson          String?         // JSON of technical attributes
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+  healthSamples      HealthSample[]
+  repairQuotes       RepairQuote[]
+  decisionCases      DecisionCase[]
+  passportEvents     PassportEvent[]
+}
+
+model HealthSample {
+  id          String    @id @default(uuid())
+  componentId String
+  component   Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  timestamp   DateTime  @default(now())
+  metricName  String    // full_charge_capacity_wh, smart_wear_pct, cycle_count, temp_c
+  metricValue Float
+  source      String
+  confidence  String    // high, medium, low
+}
+
+model DiagnosticReport {
+  id          String   @id @default(uuid())
+  deviceId    String
+  device      Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  source      String   // windows_collector, manual_json_upload, csv_import
+  rawPayload  String
+  checksum    String
+  receivedAt  DateTime @default(now())
+}
+
+model ManualPart {
+  id               String  @id @default(uuid())
+  deviceModel      String
+  componentType    String
+  compatiblePartNo String
+  partDescription  String
+  manualUrl        String
+  estimatedPrice   Float
+  isAvailable      Boolean @default(true)
+  supplier         String
+}
+
+model RepairQuote {
+  id              String    @id @default(uuid())
+  componentId     String
+  component       Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
+  labourCost      Float
+  partCost        Float
+  totalCost       Float
+  vendorName      String
+  turnaroundHours Int
+  status          String    @default("simulated") // simulated, approved, dispatched, completed
+  expiry          DateTime
+  createdAt       DateTime  @default(now())
+}
+
+model ReuseOption {
+  id            String @id @default(uuid())
+  componentType String
+  targetRole    String
+  prerequisites String
+  safetyNotes   String
+  policyStatus  String @default("approved") // approved, restricted, prohibited
+}
+
+model DecisionCase {
+  id              String    @id @default(uuid())
+  deviceId        String
+  device          Device    @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  componentId     String?
+  component       Component? @relation(fields: [componentId], references: [id])
+  recommendedPath String    // repair, same_role_reuse, cross_purpose_reuse, recycle
+  confidenceScore Float
+  justification   String
+  evidenceJson    String    // Serialized multi-tool dossier
+  policyVersion   String    @default("2026.3.1")
+  riskTier        String    // green, amber, red
+  status          String    @default("proposed") // proposed, pending_approval, approved, rejected, executed, blocked
+  createdAt       DateTime  @default(now())
+  approval        Approval?
+  outcome         Outcome?
+}
+
+model Approval {
+  id               String       @id @default(uuid())
+  caseId           String       @unique
+  decisionCase     DecisionCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  requestedAction  String
+  riskTier         String
+  requiredRole     String       // asset_manager, senior_technician, sustainability_lead
+  approverIdentity String?
+  decision         String       @default("pending") // pending, approved, rejected
+  comments         String?
+  reviewedAt       DateTime?
+  createdAt        DateTime     @default(now())
+}
+
+model PassportEvent {
+  id            String     @id @default(uuid())
+  deviceId      String
+  device        Device     @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  componentId   String?
+  component     Component? @relation(fields: [componentId], references: [id])
+  eventCategory String     // identity, health, decision, control, custody, verification
+  eventType     String
+  actor         String
+  description   String
+  evidenceRefs  String?    // JSON metadata or file hashes
+  eventHash     String
+  prevHash      String?
+  timestamp     DateTime   @default(now())
+}
+
+model Outcome {
+  id                         String       @id @default(uuid())
+  caseId                     String       @unique
+  decisionCase               DecisionCase @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  actualResult               String       // successful_repair, failed_repair, redeployed_kiosk, harvested_spares, certified_recycled
+  actualCost                 Float
+  usefulLifeExtensionMonths  Int
+  verifiedBy                 String
+  notes                      String?
+  recordedAt                 DateTime     @default(now())
+}
+
+model AutonomySetting {
+  id                    String   @id @default("default")
+  repairMode            String   @default("draft_and_assist") // advisory, draft_and_assist, auto_within_policy, full_autonomy
+  repairAutoLimitUSD    Float    @default(50.0)
+  sameRoleReuseMode     String   @default("auto_within_policy")
+  crossPurposeReuseMode String   @default("draft_and_assist")
+  recycleMode           String   @default("auto_within_policy")
+  requireWipeProof      Boolean  @default(true)
+  updatedAt             DateTime @updatedAt
+}
+
