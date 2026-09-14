@@ -92,7 +92,7 @@ async function pollBackupBot() {
             `━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
             `⚠️ *Detected Anomaly:* *${visionResult.detectedAnomaly}*`,
             `🧩 *Suspicious Module:* \`${visionResult.suspiciousProcessOrModule || "System Component"}\``,
-            `🛠️ *Triggered Tool:* ${visionResult.selectedTool.name} (${visionResult.selectedTool.type})`,
+            `🛠️ *Triggered Tool:* ${visionResult.selectedTool.name} (${visionResult.selectedTool.category})`,
             ``,
             `📊 *3-Factor Diagnosis:*`,
             `• *Health:* ${visionResult.componentHealthState}`,

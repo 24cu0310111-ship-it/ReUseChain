@@ -89,7 +89,7 @@ async function runVerification() {
   try {
     const vision = await analyzeScreenshotOrPhoto("Task Manager 100% CPU runaway crypto miner");
     assert(vision.category === "task_manager_anomaly", "Vision Analyzer detected Task Manager Anomaly", vision.category);
-    assert(vision.suspiciousProcessOrModule.includes("crypto") || vision.suspiciousProcessOrModule.includes("svchost"), "Detected rogue process", vision.suspiciousProcessOrModule);
+    assert((vision.suspiciousProcessOrModule || "").includes("crypto") || (vision.suspiciousProcessOrModule || "").includes("svchost"), "Detected rogue process", vision.suspiciousProcessOrModule);
     assert(vision.suggestedWindowsCommand.length > 0, "Generated Windows API command for triage", vision.suggestedWindowsCommand);
   } catch (err: any) {
     assert(false, "Screen Photo Analysis", err.message);
@@ -204,7 +204,7 @@ async function runVerification() {
 
     assert(match.matched === true, "Self-Learning Agent recognized previously resolved symptom", match.match?.symptomSignature);
     assert(
-      match.match?.adminResponse.includes("cleanroom data recovery") || match.match?.adminResponse.includes("Mechanical head crash"),
+      Boolean(match.match?.adminResponse && (match.match.adminResponse.includes("cleanroom data recovery") || match.match.adminResponse.includes("Mechanical head crash"))),
       "Self-Learning Agent recalled Admin's exact verified resolution",
       match.match?.adminResponse
     );

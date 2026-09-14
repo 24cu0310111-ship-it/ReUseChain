@@ -31,19 +31,21 @@ export async function GET(
     const totalAmount = booking?.totalAmountUSD || 45.0;
     const passportHash = booking?.passportHash || "e7fc1c5171297dedef5b3d513a3bfb160d24e32e6f1c72a5b7d63b87515e41b1";
 
+    const isCancelled = booking?.orderStatus === "CANCELLED";
+
     const liveTrackingData = {
       success: true,
       orderId,
-      status: "TECHNICIAN_IN_TRANSIT",
-      statusBadge: "En Route to Destination",
+      status: isCancelled ? "CANCELLED" : "TECHNICIAN_IN_TRANSIT",
+      statusBadge: isCancelled ? "Technician Dispatch Cancelled" : "En Route to Destination",
       protocolVersion: "ONDC-Services v2.0",
       bapId: "reusechain.ondc.bap.org",
       bppId: "services.ondc.bpp.urbancare.net",
       providerName: "UrbanCare Hardware Logistics on ONDC Services Network",
       estimatedArrival: {
-        minutesRemaining: 14,
-        distanceKm: 2.1,
-        etaTimestamp: "10:44 AM",
+        minutesRemaining: isCancelled ? 0 : 14,
+        distanceKm: isCancelled ? 0 : 2.1,
+        etaTimestamp: isCancelled ? "Cancelled" : "10:44 AM",
       },
       technician: {
         name: "Alex Rivera",
@@ -94,31 +96,43 @@ export async function GET(
           completed: true,
           status: "done",
         },
-        {
-          id: "m3",
-          title: "Technician In-Transit (Live GPS Active)",
-          description: "Navigating via GPS to 42 Tech Park Blvd (2.1 km away)",
-          timestamp: "Today, 10:28 AM",
-          completed: true,
-          current: true,
-          status: "in_progress",
-        },
-        {
-          id: "m4",
-          title: "Doorstep Hardware Triage & Servicing",
-          description: "Live component inspection, disassembly, and servicing",
-          timestamp: "Estimated 10:44 AM",
-          completed: false,
-          status: "pending",
-        },
-        {
-          id: "m5",
-          title: "Circularity Passport Verification & Settlement",
-          description: "Cryptographic event hash signed to ledger, invoice finalized",
-          timestamp: "Estimated 11:30 AM",
-          completed: false,
-          status: "pending",
-        },
+        ...(isCancelled ? [
+          {
+            id: "m_cancel",
+            title: "Technician Dispatch Cancelled",
+            description: "Doorstep technician assignment cancelled by user. Escrow hold released.",
+            timestamp: "Just now",
+            completed: true,
+            current: true,
+            status: "cancelled",
+          }
+        ] : [
+          {
+            id: "m3",
+            title: "Technician In-Transit (Live GPS Active)",
+            description: "Navigating via GPS to 42 Tech Park Blvd (2.1 km away)",
+            timestamp: "Today, 10:28 AM",
+            completed: true,
+            current: true,
+            status: "in_progress",
+          },
+          {
+            id: "m4",
+            title: "Doorstep Hardware Triage & Servicing",
+            description: "Live component inspection, disassembly, and servicing",
+            timestamp: "Estimated 10:44 AM",
+            completed: false,
+            status: "pending",
+          },
+          {
+            id: "m5",
+            title: "Circularity Passport Verification & Settlement",
+            description: "Cryptographic event hash signed to ledger, invoice finalized",
+            timestamp: "Estimated 11:30 AM",
+            completed: false,
+            status: "pending",
+          },
+        ]),
       ],
       passportHash,
       trackingUrl: `/track/${orderId}`,

@@ -18,7 +18,9 @@ import {
   ExternalLink,
   Navigation,
   Radio,
-  UserCheck
+  UserCheck,
+  AlertTriangle,
+  XCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +36,32 @@ export default function OndcLiveTrackingPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const handleCancelOrder = async () => {
+    setCancelling(true);
+    try {
+      const res = await fetch("/api/ondc/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: trackingData?.orderId || orderId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        handleActionToast(`Technician order #${trackingData?.orderId || orderId} cancelled successfully.`);
+        setShowCancelConfirm(false);
+        fetchTracking(true);
+      } else {
+        handleActionToast(data.error || "Failed to cancel order.");
+      }
+    } catch (err: any) {
+      handleActionToast(`Failed to cancel: ${err.message}`);
+    } finally {
+      setCancelling(false);
+    }
+  };
 
   const fetchTracking = async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
@@ -134,7 +161,24 @@ export default function OndcLiveTrackingPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {trackingData.status === "CANCELLED" ? (
+            <Badge variant="rose" className="text-xs px-2.5 py-1 bg-rose-950/80 border-rose-500/50 text-rose-300 gap-1 font-mono">
+              <XCircle className="w-3.5 h-3.5 text-rose-400" /> ORDER CANCELLED
+            </Badge>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setShowCancelConfirm(true)}
+              disabled={cancelling}
+              className="border-rose-500/40 hover:bg-rose-950/50 hover:border-rose-400 text-rose-300 hover:text-rose-200 text-xs h-8 gap-1.5 transition-colors shadow-sm shadow-rose-950/40"
+            >
+              <XCircle className={`w-3.5 h-3.5 text-rose-400 ${cancelling ? "animate-spin" : ""}`} />
+              {cancelling ? "Cancelling..." : "Cancel Technician Dispatch"}
+            </Button>
+          )}
+
           <Button
             size="sm"
             variant="outline"
@@ -152,6 +196,58 @@ export default function OndcLiveTrackingPage() {
           </Link>
         </div>
       </div>
+
+      {/* Confirmation Dialog for Cancellation */}
+      {showCancelConfirm && (
+        <div className="p-4 rounded-xl bg-rose-950/90 border-2 border-rose-500 text-xs space-y-3 shadow-2xl animate-in fade-in">
+          <div className="flex items-center gap-2 text-rose-300 font-bold text-sm">
+            <AlertTriangle className="w-4 h-4 text-rose-400" />
+            <span>Cancel Doorstep Technician Dispatch?</span>
+          </div>
+          <p className="text-slate-200 text-xs leading-relaxed">
+            Are you sure you want to cancel the dispatch for <strong>{trackingData.technician?.name || "Alex Rivera"}</strong>? Pre-authorized escrow hold (${trackingData.serviceDetails?.preAuthorizedFeeUSD?.toFixed(2) || "45.00"} USD) will be released back to your account immediately.
+          </p>
+          <div className="flex items-center gap-2 pt-1">
+            <Button
+              size="sm"
+              disabled={cancelling}
+              onClick={handleCancelOrder}
+              className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs h-8 px-4"
+            >
+              {cancelling ? "Cancelling Dispatch..." : "Yes, Cancel Technician"}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={cancelling}
+              onClick={() => setShowCancelConfirm(false)}
+              className="border-slate-700 text-slate-300 text-xs h-8 px-3 hover:bg-slate-800"
+            >
+              Keep Order
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Order Cancelled Notification Banner */}
+      {trackingData.status === "CANCELLED" && (
+        <div className="p-4 rounded-xl bg-rose-950/80 border-2 border-rose-500/50 text-rose-200 text-xs flex flex-wrap items-center justify-between gap-3 shadow-xl animate-in fade-in">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 shrink-0">
+              <XCircle className="w-5 h-5" />
+            </div>
+            <div>
+              <span className="font-bold text-sm text-white block">Doorstep Technician Assignment Cancelled</span>
+              <span className="text-slate-300 text-xs">This ONDC service dispatch has been cancelled. Any pre-authorized escrow hold has been released immediately.</span>
+            </div>
+          </div>
+          <Link href="/manual">
+            <Button size="sm" className="bg-rose-600 hover:bg-rose-500 text-white text-xs h-8">
+              Return to Diagnostics
+            </Button>
+          </Link>
+        </div>
+      )}
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -345,6 +441,20 @@ export default function OndcLiveTrackingPage() {
                   <MessageSquare size={12} className="text-cyan-400" /> Chat Tech
                 </Button>
               </div>
+
+              {trackingData.status !== "CANCELLED" && (
+                <div className="pt-2 border-t border-slate-800/80">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={cancelling}
+                    onClick={() => setShowCancelConfirm(true)}
+                    className="w-full border-rose-500/30 hover:bg-rose-950/40 text-rose-400 hover:text-rose-300 text-xs h-8 gap-1.5 transition-colors"
+                  >
+                    <XCircle size={13} className="text-rose-400" /> Cancel Technician Dispatch
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 

@@ -25,7 +25,8 @@ import {
   HardDrive,
   Battery,
   Wifi,
-  Sliders
+  Sliders,
+  XCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +51,28 @@ export default function ManualDataEntryPage() {
   const [bookingLoading, setBookingLoading] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState<any>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
+  const [cancelBookingLoading, setCancelBookingLoading] = useState(false);
+
+  const handleCancelTechnicianBooking = async (orderId?: string) => {
+    setCancelBookingLoading(true);
+    try {
+      const res = await fetch("/api/ondc/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: orderId || bookingSuccess?.ondcOrderId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (bookingSuccess) {
+          setBookingSuccess((prev: any) => ({ ...prev, status: "CANCELLED" }));
+        }
+      }
+    } catch (err: any) {
+      console.error("Cancel booking error:", err);
+    } finally {
+      setCancelBookingLoading(false);
+    }
+  };
 
   const handleBookOndc = async () => {
     setBookingLoading(true);
@@ -834,28 +857,59 @@ export default function ManualDataEntryPage() {
                       </div>
 
                       {bookingSuccess ? (
-                        <div className="p-3.5 rounded-xl bg-emerald-950/70 border border-emerald-500/50 text-xs space-y-2 animate-in fade-in">
-                          <div className="flex items-center justify-between text-emerald-300 font-bold">
-                            <span className="flex items-center gap-1.5 text-sm">
-                              <CheckCircle2 size={16} /> Technician Booked via ONDC Network!
-                            </span>
-                            <Badge variant="emerald" className="text-xs">{bookingSuccess.ondcOrderId}</Badge>
-                          </div>
-                          <p className="text-slate-300 text-xs">
-                            Specialist <strong>{bookingSuccess.bookingDetails?.assignedTechnician || "Alex Rivera"}</strong> reserved for <strong>{bookingSuccess.bookingDetails?.scheduledSlot}</strong>.
-                          </p>
-                          <div className="text-xs text-slate-400">
-                            Destination: {bookingSuccess.bookingDetails?.doorstepDelivery?.address || "Bangalore (560103)"} (Zero Form-Filling)
-                          </div>
-                          <div className="pt-1">
-                            <Link
-                              href={`/track/${encodeURIComponent(bookingSuccess.ondcOrderId || bookingSuccess.bookingDetails?.orderId || "ONDC-SRV-2026-896751")}`}
-                              className="inline-flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 font-semibold underline underline-offset-4 bg-cyan-950/40 px-3 py-1.5 rounded-lg border border-cyan-500/30"
+                        bookingSuccess.status === "CANCELLED" ? (
+                          <div className="p-3.5 rounded-xl bg-rose-950/70 border border-rose-500/50 text-xs space-y-2 animate-in fade-in">
+                            <div className="flex items-center justify-between text-rose-300 font-bold">
+                              <span className="flex items-center gap-1.5 text-sm">
+                                <XCircle size={16} /> Technician Dispatch Cancelled
+                              </span>
+                              <Badge variant="rose" className="text-xs">{bookingSuccess.ondcOrderId}</Badge>
+                            </div>
+                            <p className="text-slate-300 text-xs">
+                              Your technician reservation has been successfully cancelled. Pre-authorized hold has been released.
+                            </p>
+                            <Button
+                              size="sm"
+                              onClick={() => setBookingSuccess(null)}
+                              className="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs h-7"
                             >
-                              <Truck className="w-4 h-4" /> Open Live ONDC Doorstep Tracking →
-                            </Link>
+                              Book Again
+                            </Button>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="p-3.5 rounded-xl bg-emerald-950/70 border border-emerald-500/50 text-xs space-y-2 animate-in fade-in">
+                            <div className="flex items-center justify-between text-emerald-300 font-bold">
+                              <span className="flex items-center gap-1.5 text-sm">
+                                <CheckCircle2 size={16} /> Technician Booked via ONDC Network!
+                              </span>
+                              <Badge variant="emerald" className="text-xs">{bookingSuccess.ondcOrderId}</Badge>
+                            </div>
+                            <p className="text-slate-300 text-xs">
+                              Specialist <strong>{bookingSuccess.bookingDetails?.assignedTechnician || "Alex Rivera"}</strong> reserved for <strong>{bookingSuccess.bookingDetails?.scheduledSlot}</strong>.
+                            </p>
+                            <div className="text-xs text-slate-400">
+                              Destination: {bookingSuccess.bookingDetails?.doorstepDelivery?.address || "Bangalore (560103)"} (Zero Form-Filling)
+                            </div>
+                            <div className="pt-1 flex flex-wrap items-center gap-2">
+                              <Link
+                                href={`/track/${encodeURIComponent(bookingSuccess.ondcOrderId || bookingSuccess.bookingDetails?.orderId || "ONDC-SRV-2026-896751")}`}
+                                className="inline-flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 font-semibold underline underline-offset-4 bg-cyan-950/40 px-3 py-1.5 rounded-lg border border-cyan-500/30"
+                              >
+                                <Truck className="w-4 h-4" /> Open Live ONDC Doorstep Tracking →
+                              </Link>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={cancelBookingLoading}
+                                onClick={() => handleCancelTechnicianBooking(bookingSuccess.ondcOrderId)}
+                                className="border-rose-500/40 hover:bg-rose-950/50 text-rose-300 text-xs h-7 gap-1 transition-colors"
+                              >
+                                <XCircle className={`w-3.5 h-3.5 text-rose-400 ${cancelBookingLoading ? "animate-spin" : ""}`} />
+                                {cancelBookingLoading ? "Cancelling..." : "Cancel Technician"}
+                              </Button>
+                            </div>
+                          </div>
+                        )
                       ) : (
                         <div className="space-y-1.5 pt-1">
                           <Button 

@@ -46,12 +46,36 @@ export async function POST(req: NextRequest) {
         (text.includes("eta") && !text.includes("beta"))
       );
 
-    const isBookingIntent = 
+    const isCancelBookingIntent =
       !isAdminEscalateIntent && !isTrackingIntent && (
-        text.includes("book") || 
-        text.includes("technician") || 
-        text.includes("send someone") || 
-        text.includes("doorstep") || 
+        text.includes("cancel technician") ||
+        text.includes("cancel the technician") ||
+        text.includes("cancel order") ||
+        text.includes("cancel my order") ||
+        text.includes("cancel booking") ||
+        text.includes("cancel my booking") ||
+        text.includes("cancel doorstep") ||
+        text.includes("cancel dispatch") ||
+        (text.includes("cancel") && (
+          text.includes("technician") ||
+          text.includes("order") ||
+          text.includes("booking") ||
+          text.includes("dispatch") ||
+          text.includes("doorstep") ||
+          text.includes("appointment") ||
+          text.includes("slot")
+        ))
+      );
+
+    const isBookingIntent = 
+      !isAdminEscalateIntent && !isTrackingIntent && !isCancelBookingIntent && (
+        text.startsWith("book") || 
+        text.includes("book a technician") ||
+        text.includes("book technician") ||
+        text.includes("book doorstep") ||
+        text.includes("reserve technician") ||
+        text.includes("schedule a technician") ||
+        text.includes("send a technician to my doorstep") ||
         text.includes("reserve tech")
       );
 
@@ -80,12 +104,12 @@ export async function POST(req: NextRequest) {
 
     const isScreenIntent = 
       !isAdminEscalateIntent && !isTrackingIntent && !isBookingIntent && !isReuseIntent && !isRecycleIntent && (
-        text.includes("photo") || 
-        text.includes("screen") || 
+        Boolean(photoData) ||
+        text.includes("screenshot") || 
+        text.includes("photo of screen") || 
+        text.includes("screen photo") || 
         text.includes("bsod") || 
         text.includes("blue screen") || 
-        text.includes("crash") || 
-        text.includes("camera") ||
         text.includes("stop code")
       );
 
@@ -327,6 +351,55 @@ export async function POST(req: NextRequest) {
           ...trackingDetails,
           bapId: "reusechain.ondc.bap.org",
           bppId: "services.ondc.bpp.urbancare.net",
+          passportHash,
+        },
+      });
+    }
+
+    // 0B2. ACTION: CANCEL TECHNICIAN DISPATCH / ORDER
+    if (isCancelBookingIntent) {
+      let booking = await prisma.ondcBooking.findFirst({
+        where: { orderStatus: { not: "CANCELLED" } },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (!booking) {
+        booking = await prisma.ondcBooking.findFirst({
+          orderBy: { createdAt: "desc" },
+        });
+      }
+
+      const orderId = booking?.ondcOrderId || "ONDC-SRV-2026-948122";
+
+      if (booking) {
+        await prisma.ondcBooking.update({
+          where: { id: booking.id },
+          data: { orderStatus: "CANCELLED" },
+        });
+
+        await prisma.technicianBooking.updateMany({
+          where: {
+            OR: [
+              { deviceId: booking.deviceId },
+              { assetTag: booking.assetTag },
+            ],
+          },
+          data: { serviceStatus: "cancelled" },
+        });
+      }
+
+      const passportHash = sha256(`ONDC_CANCEL:${orderId}:${Date.now()}`);
+
+      return NextResponse.json({
+        success: true,
+        actionType: "BOOKING_CANCELLED",
+        completionMessage: `🚫 Technician Dispatch #${orderId} has been successfully cancelled! Doorstep specialist Alex Rivera has been notified, and any pre-authorized escrow hold has been released back to your account.`,
+        actionDetails: {
+          orderId,
+          technician: "Alex Rivera (Dell/HP Certified Specialist)",
+          status: "CANCELLED",
+          refundStatus: "Pre-Authorized Hold Released ($45.00 USD)",
+          cancelledAt: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           passportHash,
         },
       });
@@ -623,15 +696,46 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. ACTION: AI UNDERSTANDING MODEL HARDWARE DIAGNOSTICS & TESTING TOOLS
-    const aiDiag = await understandAndDiagnoseWithAi(queryText, body.apiKey);
+    const aiDiag = await understandAndDiagnoseWithAi(
+      queryText,
+      body.apiKey,
+      body.reasoningModel,
+      body.interactiveTestResult
+    );
     const passportHash = sha256(`AI_HARDWARE_DIAG:${assetTag}:${aiDiag.affectedComponent}:${Date.now()}`);
 
     const keyDetailSnippet = aiDiag.targetDetail ? ` [Target: ${aiDiag.targetDetail}]` : "";
 
+    let actionType: string = "HARDWARE_AI_DIAGNOSTIC";
+    let completionMessage = "";
+
+    if (aiDiag.selectedTool.id === "keyboard_touchpad_functional" && !body.interactiveTestResult) {
+      actionType = "HARDWARE_AI_DIAGNOSTIC";
+      completionMessage = `⌨️ [${aiDiag.aiModelName}] Keyboard Subsystem Diagnostic Complete.\n\n` +
+        `• Host Telemetry: Windows keyboard controller is ACTIVE and responsive (${aiDiag.rawHostOutput.split('\n')[0] || "Status: OK"}).\n` +
+        `• Component Health: ${aiDiag.threeFactors.factor1_health}\n` +
+        `• Functional Impact: ${aiDiag.threeFactors.factor2_impact}\n` +
+        `• Root Cause Analysis: ${aiDiag.threeFactors.factor3_rootCause}\n\n` +
+        `Recommended Solutions:\n` +
+        `1. Disable Filter Keys: Press Windows + I → Accessibility → Keyboard → turn OFF 'Filter Keys' & 'Sticky Keys'.\n` +
+        `2. Clean Key Switches: Clear dust or particulate under keycaps using compressed air.\n` +
+        `3. Service / Repair: If mechanical switches or membrane traces are physically damaged, choose a certified repair option below.`;
+    } else if (body.interactiveTestResult?.status === "passed") {
+      actionType = "KEYBOARD_TEST_VERIFIED";
+      completionMessage = `🎉 Verified Working! [${aiDiag.aiModelName}]\n\nKey '${body.interactiveTestResult.targetKey}' registered cleanly with valid scancode and nominal contact debounce (${body.interactiveTestResult.responseTimeMs || 4.2}ms). The physical switch and matrix trace are 100% functional. Doorstep technician booking is NOT required!`;
+    } else if (body.interactiveTestResult?.status === "failed") {
+      actionType = "KEYBOARD_TEST_FAILED";
+      completionMessage = `⚠️ Verified Switch Fault! [${aiDiag.aiModelName}]\n\nKey '${body.interactiveTestResult.targetKey}' failed to register any scancodes during the test. Localized physical switch failure confirmed. You may now attempt compressed air cleaning or book an ONDC certified doorstep technician below.`;
+    } else if (aiDiag.triageVerdict === "healthy") {
+      completionMessage = `✅ Baseline Telemetry Verified: [${aiDiag.aiModelName}]\n\nTriggered Testing Tool: ${aiDiag.selectedTool.name} (${aiDiag.testingCategory}) in ${aiDiag.executionTimeMs}ms.\n\nDiagnosis Summary:\n• ${aiDiag.threeFactors.factor1_health}\n• ${aiDiag.threeFactors.factor2_impact}\n• ${aiDiag.threeFactors.factor3_rootCause}\n\nStatus: All parameters are nominal. Doorstep technician visit is NOT required.`;
+    } else {
+      completionMessage = `🎉 Analysis Complete! [AI Model: ${aiDiag.aiModelName}] analyzed your query: "${aiDiag.interpretedIntent}"${keyDetailSnippet}.\n\nTriggered Testing Tool: ${aiDiag.selectedTool.name} (${aiDiag.testingCategory}) in ${aiDiag.executionTimeMs}ms.\n\nDiagnosis Summary:\n• ${aiDiag.threeFactors.factor1_health}\n• ${aiDiag.threeFactors.factor2_impact}\n• ${aiDiag.threeFactors.factor3_rootCause}\n\nRecommended Action: ${aiDiag.triageVerdict.toUpperCase()}.`;
+    }
+
     return NextResponse.json({
       success: true,
-      actionType: "HARDWARE_AI_DIAGNOSTIC",
-      completionMessage: `🎉 It's all done! [AI Model: ${aiDiag.aiModelName}] analyzed your query: "${aiDiag.interpretedIntent}"${keyDetailSnippet}.\n\nTriggered Testing Tool: ${aiDiag.selectedTool.name} (${aiDiag.testingCategory}) in ${aiDiag.executionTimeMs}ms.\n\nDiagnosis Summary:\n• ${aiDiag.threeFactors.factor1_health}\n• ${aiDiag.threeFactors.factor2_impact}\n• ${aiDiag.threeFactors.factor3_rootCause}\n\nRecommended Action: ${aiDiag.triageVerdict.toUpperCase()}. Check below for the live Windows API output, doorstep technician booking, and circular salvage options!`,
+      actionType,
+      completionMessage,
       actionDetails: {
         aiModelName: aiDiag.aiModelName,
         interpretedIntent: aiDiag.interpretedIntent,
@@ -645,7 +749,9 @@ export async function POST(req: NextRequest) {
         threeFactors: aiDiag.threeFactors,
         triageVerdict: aiDiag.triageVerdict,
         conditionAssessment: aiDiag.conditionAssessment,
-        finalActions,
+        thinkingProcess: aiDiag.thinkingProcess,
+        interactiveTest: aiDiag.interactiveTest,
+        finalActions: aiDiag.triageVerdict === "testing_required" || aiDiag.triageVerdict === "healthy" ? undefined : finalActions,
         passportHash,
       },
     });

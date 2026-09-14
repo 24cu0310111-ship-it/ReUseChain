@@ -37,7 +37,8 @@ import {
   Check,
   Copy,
   Image as ImageIcon,
-  X
+  X,
+  XCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -113,6 +114,38 @@ export default function HomePage() {
       setBookingError(err.message || "Network error while connecting to ONDC");
     } finally {
       setBookingLoading(false);
+    }
+  };
+
+  const [cancelBookingLoading, setCancelBookingLoading] = useState(false);
+
+  const handleCancelTechnicianBooking = async (orderId?: string) => {
+    setCancelBookingLoading(true);
+    try {
+      const res = await fetch("/api/ondc/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: orderId || bookingSuccess?.ondcOrderId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        if (bookingSuccess) {
+          setBookingSuccess((prev: any) => ({ ...prev, status: "CANCELLED" }));
+        }
+        const cancelMsg = {
+          id: `agent-cancel-${Date.now()}`,
+          sender: "agent",
+          text: `🚫 Technician Dispatch #${data.orderId || "order"} has been successfully cancelled! Doorstep specialist Alex Rivera has been notified, and any pre-authorized escrow hold has been released.`,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          actionType: "BOOKING_CANCELLED",
+          actionDetails: data,
+        };
+        setChatMessages((prev) => [...prev, cancelMsg]);
+      }
+    } catch (err: any) {
+      console.error("Cancel booking error:", err);
+    } finally {
+      setCancelBookingLoading(false);
     }
   };
 
@@ -679,10 +712,10 @@ export default function HomePage() {
                   <div className="flex flex-wrap items-center gap-1.5">
                     <button
                       type="button"
-                      onClick={() => setSymptom("Keyboard semi colon symbol is that working")}
+                      onClick={() => setSymptom("The keys on my keyboard are not working")}
                       className="px-2.5 py-1 rounded-md bg-purple-950/40 hover:bg-purple-900/50 text-purple-200 text-xs border border-purple-500/40 hover:border-purple-400 font-medium transition-colors"
                     >
-                      ⌨️ Keyboard semi colon symbol (;) test
+                      ⌨️ Keyboard & Touchpad Tests
                     </button>
                     <button
                       type="button"
@@ -1076,28 +1109,59 @@ export default function HomePage() {
                           </div>
 
                           {bookingSuccess ? (
-                            <div className="p-3.5 rounded-xl bg-emerald-950/70 border border-emerald-500/50 text-xs space-y-2 animate-in fade-in">
-                              <div className="flex items-center justify-between text-emerald-300 font-bold">
-                                <span className="flex items-center gap-1.5 text-sm">
-                                  <CheckCircle2 size={16} /> Technician Booked via ONDC Network!
-                                </span>
-                                <Badge variant="emerald" className="text-xs">{bookingSuccess.ondcOrderId}</Badge>
-                              </div>
-                              <p className="text-slate-300 text-xs">
-                                Specialist <strong>{bookingSuccess.bookingDetails?.assignedTechnician || "Alex Rivera"}</strong> reserved for <strong>{bookingSuccess.bookingDetails?.scheduledSlot}</strong>.
-                              </p>
-                              <div className="text-xs text-slate-400">
-                                Destination: {bookingSuccess.bookingDetails?.doorstepDelivery?.address || "Bangalore (560103)"} (Zero Form-Filling)
-                              </div>
-                              <div className="pt-1">
-                                <Link
-                                  href={`/track/${encodeURIComponent(bookingSuccess.ondcOrderId || bookingSuccess.bookingDetails?.orderId || "ONDC-SRV-2026-896751")}`}
-                                  className="inline-flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 font-semibold underline underline-offset-4 bg-cyan-950/40 px-3 py-1.5 rounded-lg border border-cyan-500/30"
+                            bookingSuccess.status === "CANCELLED" ? (
+                              <div className="p-3.5 rounded-xl bg-rose-950/70 border border-rose-500/50 text-xs space-y-2 animate-in fade-in">
+                                <div className="flex items-center justify-between text-rose-300 font-bold">
+                                  <span className="flex items-center gap-1.5 text-sm">
+                                    <XCircle size={16} /> Technician Dispatch Cancelled
+                                  </span>
+                                  <Badge variant="rose" className="text-xs">{bookingSuccess.ondcOrderId}</Badge>
+                                </div>
+                                <p className="text-slate-300 text-xs">
+                                  Your technician reservation has been successfully cancelled. Pre-authorized hold has been released.
+                                </p>
+                                <Button
+                                  size="sm"
+                                  onClick={() => setBookingSuccess(null)}
+                                  className="bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs h-7"
                                 >
-                                  <Truck className="w-4 h-4" /> Open Live ONDC Doorstep Tracking →
-                                </Link>
+                                  Book Again
+                                </Button>
                               </div>
-                            </div>
+                            ) : (
+                              <div className="p-3.5 rounded-xl bg-emerald-950/70 border border-emerald-500/50 text-xs space-y-2 animate-in fade-in">
+                                <div className="flex items-center justify-between text-emerald-300 font-bold">
+                                  <span className="flex items-center gap-1.5 text-sm">
+                                    <CheckCircle2 size={16} /> Technician Booked via ONDC Network!
+                                  </span>
+                                  <Badge variant="emerald" className="text-xs">{bookingSuccess.ondcOrderId}</Badge>
+                                </div>
+                                <p className="text-slate-300 text-xs">
+                                  Specialist <strong>{bookingSuccess.bookingDetails?.assignedTechnician || "Alex Rivera"}</strong> reserved for <strong>{bookingSuccess.bookingDetails?.scheduledSlot}</strong>.
+                                </p>
+                                <div className="text-xs text-slate-400">
+                                  Destination: {bookingSuccess.bookingDetails?.doorstepDelivery?.address || "Bangalore (560103)"} (Zero Form-Filling)
+                                </div>
+                                <div className="pt-1 flex flex-wrap items-center gap-2">
+                                  <Link
+                                    href={`/track/${encodeURIComponent(bookingSuccess.ondcOrderId || bookingSuccess.bookingDetails?.orderId || "ONDC-SRV-2026-896751")}`}
+                                    className="inline-flex items-center gap-1.5 text-xs text-cyan-400 hover:text-cyan-300 font-semibold underline underline-offset-4 bg-cyan-950/40 px-3 py-1.5 rounded-lg border border-cyan-500/30"
+                                  >
+                                    <Truck className="w-4 h-4" /> Open Live ONDC Doorstep Tracking →
+                                  </Link>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={cancelBookingLoading}
+                                    onClick={() => handleCancelTechnicianBooking(bookingSuccess.ondcOrderId)}
+                                    className="border-rose-500/40 hover:bg-rose-950/50 text-rose-300 text-xs h-7 gap-1 transition-colors"
+                                  >
+                                    <XCircle className={`w-3.5 h-3.5 text-rose-400 ${cancelBookingLoading ? "animate-spin" : ""}`} />
+                                    {cancelBookingLoading ? "Cancelling..." : "Cancel Technician"}
+                                  </Button>
+                                </div>
+                              </div>
+                            )
                           ) : (
                             <div className="space-y-1.5 pt-1">
                               <Button 
@@ -1429,14 +1493,42 @@ export default function HomePage() {
                         </div>
                       )}
 
-                      <div className="flex items-center gap-2 pt-0.5">
+                      <div className="flex flex-wrap items-center gap-2 pt-0.5">
                         <Button
                           size="sm"
                           onClick={() => sendChatMessage("Track my technician live on ONDC")}
-                          className="w-full bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs h-7 gap-1"
+                          className="flex-1 bg-amber-600 hover:bg-amber-500 text-slate-950 font-bold text-xs h-7 gap-1"
                         >
-                          <Navigation className="w-3 h-3" /> View Live GPS Console in Chat
+                          <Navigation className="w-3 h-3" /> View Live GPS Console
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={cancelBookingLoading}
+                          onClick={() => handleCancelTechnicianBooking(m.actionDetails?.orderId)}
+                          className="border-rose-500/40 hover:bg-rose-950/40 text-rose-300 hover:text-rose-200 text-xs h-7 gap-1 transition-colors"
+                        >
+                          <XCircle className={`w-3.5 h-3.5 text-rose-400 ${cancelBookingLoading ? "animate-spin" : ""}`} /> Cancel Technician
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Proof Card: Order Cancelled Confirmation */}
+                  {m.actionType === "BOOKING_CANCELLED" && (
+                    <div className="mt-3 pt-2.5 border-t border-slate-800 space-y-2 bg-rose-950/60 p-3 rounded-xl border border-rose-500/40 animate-in fade-in">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-rose-400 font-bold flex items-center gap-1.5">
+                          <XCircle className="w-4 h-4 text-rose-400" /> Doorstep Technician Assignment Cancelled
+                        </span>
+                        <Badge variant="rose" className="text-[9px]">CANCELLED</Badge>
+                      </div>
+                      <div className="text-[11px] text-slate-300">
+                        Technician dispatch for <strong>{m.actionDetails?.technician || "Alex Rivera"}</strong> (#{m.actionDetails?.orderId}) has been cancelled.
+                      </div>
+                      <div className="p-2 rounded bg-rose-950/80 border border-rose-500/30 text-[10px] text-rose-300 font-mono flex items-center justify-between">
+                        <span>Escrow Hold Status:</span>
+                        <span className="font-bold text-emerald-400">Released (100% Refunded)</span>
                       </div>
                     </div>
                   )}
@@ -1690,10 +1782,10 @@ export default function HomePage() {
               </button>
               <button
                 type="button"
-                onClick={() => sendChatMessage("Keyboard semi colon symbol is that working")}
+                onClick={() => sendChatMessage("The keys on my keyboard are not working")}
                 className="shrink-0 px-2.5 py-1 rounded-full bg-purple-950/60 border border-purple-500/30 text-purple-300 hover:text-white"
               >
-                ⌨️ Semi-colon (;) Test
+                ⌨️ Keyboard Diagnostic
               </button>
               <button
                 type="button"

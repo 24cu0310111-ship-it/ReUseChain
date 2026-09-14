@@ -70,7 +70,7 @@ interface ScenarioTrace {
   badge: string;
   description: string;
   nodeSequence: string[];
-  payloads: Record<string, string>;
+  payloads: Record<string, any>;
   finalPassportHash: string;
 }
 
@@ -630,7 +630,7 @@ export default function ArchitectureGraphPage() {
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <Badge variant={isCurrent ? "cyan" : "slate"} className="text-[9px] py-0 px-1.5">
+                  <Badge variant={isCurrent ? "cyan" : "secondary"} className="text-[9px] py-0 px-1.5">
                     {sc.badge}
                   </Badge>
                   {isCurrent && isPlaying && (
