@@ -17,7 +17,8 @@ import {
   UploadCloud,
   MessageSquare,
   HelpCircle,
-  BarChart3
+  BarChart3,
+  Network
 } from "lucide-react";
 
 export default function Navbar() {
@@ -47,7 +48,8 @@ export default function Navbar() {
       pathname === "/approvals" ||
       pathname === "/passport" ||
       pathname === "/settings" ||
-      pathname === "/escalations";
+      pathname === "/escalations" ||
+      pathname === "/graph";
 
     const stored = typeof window !== "undefined" ? localStorage.getItem("reusechain_manual_mode") : null;
     if (isManualPath) {
@@ -86,6 +88,7 @@ export default function Navbar() {
     { label: "Approval Queue", href: "/approvals", icon: CheckCircle2 },
     { label: "Circularity Passport", href: "/passport", icon: ShieldCheck },
     { label: "Learning & ROI", href: "/learning", icon: BarChart3 },
+    { label: "Architecture Graph", href: "/graph", icon: Network },
   ];
 
   const isToolActive = secondaryTools.some((t) => pathname === t.href || pathname.startsWith(t.href));
@@ -173,6 +176,13 @@ export default function Navbar() {
       ) : (
         /* When NOT in manual data entry: Navigation panel is hidden, replaced with clean single button */
         <div className="flex items-center gap-2 animate-in fade-in duration-200">
+          <Link
+            href="/graph"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-cyan-300 hover:text-white bg-cyan-950/40 border border-cyan-500/30 hover:border-cyan-400 transition-all shadow-sm"
+          >
+            <Network size={14} className="text-cyan-400" />
+            <span>Architecture Graph</span>
+          </Link>
           <Link
             href="/manual"
             onClick={() => {
