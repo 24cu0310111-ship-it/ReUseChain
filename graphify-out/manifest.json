@@ -222,9 +222,9 @@
     "semantic_hash": "43751a086eab0102655a225f7a64a019"
   },
   "src/app/assistant/page.tsx": {
-    "mtime": 1789400284.5972264,
-    "seen": 1789400507.841132,
-    "ast_hash": "ed2204fb29d6f8aa6a62ccfce5424456",
+    "mtime": 1789401250.4805565,
+    "seen": 1789401550.4166636,
+    "ast_hash": "c0a6768487f4d503e39a9c63b619e6a1",
     "semantic_hash": ""
   },
   "src/app/desktop-agent/page.tsx": {
@@ -360,9 +360,9 @@
     "semantic_hash": "f9499069bb97e62c9748d7a6ce8b74d9"
   },
   "src/lib/hardware-ai-agent.ts": {
-    "mtime": 1789398841.986537,
-    "seen": 1789399028.4854221,
-    "ast_hash": "23fc609c310dda8c0b8adbe1d01481d5",
+    "mtime": 1789401204.1539395,
+    "seen": 1789401550.4166884,
+    "ast_hash": "c998d2ff0e59772073d7e3ac177636f3",
     "semantic_hash": ""
   },
   "src/lib/langgraph/workflow.ts": {

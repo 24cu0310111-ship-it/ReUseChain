@@ -30,10 +30,12 @@
   "28": "settings/route.ts",
   "29": "verify-wipe/route.ts",
   "30": "keyboard/route.ts",
-  "31": "learning/route.ts",
+  "31": "devDependencies",
   "32": "intake/route.ts",
   "33": "rules/graphify.md",
   "34": "workflows/graphify.md",
   "35": "dependencies",
-  "36": "gsd-help.md"
+  "36": "gsd-help.md",
+  "37": "dispatch/route.ts",
+  "38": "cancel/route.ts"
 }

@@ -53,3 +53,8 @@ dist/
 ehthumbs.db
 Thumbs.db
 
+# Build and local tool caches #
+###############################
+tsconfig.tsbuildinfo
+graphify-out/.graphify_python
+

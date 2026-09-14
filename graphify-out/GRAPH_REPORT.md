@@ -1,7 +1,7 @@
 # Graph Report - ReUseChain  (2026-09-14)
 
 ## Corpus Check
-- 81 files · ~87,397 words
+- 81 files · ~87,400 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 6 file(s) not represented in the graph (top: (none) 2, .example 1, .prisma 1)
 
@@ -11,7 +11,7 @@
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `81bfa934`
+- Built from commit: `34bbb223`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 

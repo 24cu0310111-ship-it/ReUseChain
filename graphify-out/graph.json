@@ -6008,7 +6008,7 @@
       "confidence_score": 1.0,
       "context": "call",
       "source_file": "src/lib/hardware-ai-agent.ts",
-      "source_location": "L826",
+      "source_location": "L827",
       "weight": 1.0
     },
     {
@@ -13556,5 +13556,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "81bfa934b9bb28087411d7977bb20b7698e55ad6"
+  "built_at_commit": "34bbb22346ae3696aef5f74fa597346d35c3343d"
 }
